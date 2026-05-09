@@ -1,0 +1,14 @@
+{
+    "name": "juan/pdf",
+    "description": "pdf",
+    "type": "project",
+    "require": {
+        "mpdf/mpdf": "^8.1"
+    },
+    "authors": [
+        {
+            "name": "JuanRamon96",
+            "email": "jramongarciaangel@gmail.com"
+        }
+    ]
+}
