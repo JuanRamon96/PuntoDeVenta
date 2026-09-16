@@ -74,7 +74,7 @@ function chartProductos() {
 	} else {
 		var padre = $("#chartProductos").parent();
 		$("#chartProductos").remove();
-		padre.html('<div class="col-12" id="chartProductos" style="height: 600px;"></div>');
+		padre.html('<div class="col-12" id="chartProductos" style="height: 420px;"></div>');
 
 		var data = "metodo=consultar&accion=reportes&tipo=productos&fechaInicio=" + $("#fechaInicioProd").val() + "&fechaFin=" + $("#fechaFinProd").val();
 
@@ -199,7 +199,7 @@ function chartProductos() {
 function chartVentas() {
 	var padre = $("#chartVentas").parent();
 	$("#chartVentas").remove();
-	padre.html('<div class="col-12" id="chartVentas" style="height: 600px;"></div>');
+	padre.html('<div class="col-12" id="chartVentas" style="height: 420px;"></div>');
 
 	var data = "metodo=consultar&accion=reportes&tipo=chartVentas&fechaInicio=" + $("#fechaInicioVentas").val() + "&fechaFin=" + $("#fechaFinVentas").val();
 

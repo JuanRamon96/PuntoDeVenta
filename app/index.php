@@ -1,4 +1,5 @@
 <?php 
+	header('Permissions-Policy: camera=(self)');
 	session_cache_expire(15);
 	session_start();
 	require "controladores/c_controller.php";

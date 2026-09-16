@@ -169,6 +169,9 @@ function tablaVentas() {
       metodo: 'consultar',
       accion: 'ventas',
       tipo: "ventas"
+    },
+    totals: {
+      4: 'Total'
     }
   });
 }

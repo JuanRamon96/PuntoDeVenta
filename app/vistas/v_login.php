@@ -14,37 +14,63 @@
 
 
 	<link rel="stylesheet" href="vistas/assets/plugins/bootstrap/css/bootstrap.min.css">
+	<link rel="stylesheet" href="vistas/assets/plugins/fontawesome/css/all.css">
 	<link rel="stylesheet" href="vistas/assets/css/style.css">
+	<link rel="stylesheet" href="vistas/assets/css/theme-ventastool.css?v=16">
 </head>
 
 <body>
-	<div class="auth-wrapper">
-		<div class="auth-content">
-			<div class="card">
-				<div class="row align-items-center text-center">
-					<div class="col-md-12">
-						<form id="formLogin" class="card-body">
-							<img src="vistas/assets/images/logos/mediano.png" class="img-fluid mb-4">
-							<div id="mensaAV"></div>
-							<div class="form-floating mb-3">
-								<input type="email" class="form-control" id="email" name="email" placeholder="Email">
-								<label for="floatingInput">Email</label>
-							</div>
-							<div class="form-floating mb-3">
-								<input type="password" class="form-control" id="pass" name="pass" placeholder="Contraseña">
-								<label for="floatingInput">Contraseña</label>
-							</div>
-							<div class="text-end">
-								<a href="#" class="small" data-bs-toggle="modal" data-bs-target="#modalOlvidoContra">
-									¿Olvidaste tu contraseña?
-								</a>
-							</div>
-							<br>
-							<div class="form-floating mb-3 d-grid">
-								<button type="submit" class="btn btn-danger btn-lg" id="bIngresarLogin">Ingresar <i class="fas fa-check"></i></button>
-							</div>
-							<h6 class="mb-0 text-muted">¿No tienes cuenta? <a href="../#precios" class="f-w-600">Registrate aquí</a></h6>
-						</form>
+	<div class="vt-login-page">
+		<div class="vt-login-brand-panel">
+			<div class="vt-login-logo-box">
+				<img src="vistas/assets/images/logos/largo.png" alt="VentasTool">
+			</div>
+			<h2>Tu negocio en buenas manos</h2>
+			<p class="vt-login-tagline">Vende, controla tu inventario, factura y lleva todo tu negocio desde un solo lugar.</p>
+			<ul class="vt-login-features">
+				<li><i class="fas fa-cart-shopping"></i> Ventas</li>
+				<li><i class="fas fa-box"></i> Inventario</li>
+				<li><i class="fas fa-file-invoice"></i> Facturación CFDI</li>
+				<li><i class="fas fa-users"></i> Clientes</li>
+				<li><i class="fas fa-chart-line"></i> Reportes</li>
+				<li><i class="fas fa-cash-register"></i> Cajas ilimitadas</li>
+			</ul>
+		</div>
+		<div class="vt-login-form-panel">
+			<div class="auth-content">
+				<div class="card">
+					<div class="row align-items-center text-center">
+						<div class="col-md-12">
+							<form id="formLogin" class="card-body">
+								<p class="vt-login-welcome">Bienvenido de nuevo</p>
+								<p class="vt-login-sub">Ingresa tus datos para acceder a tu cuenta</p>
+								<div id="mensaAV"></div>
+								<div class="form-floating mb-3">
+									<input type="email" class="form-control" id="email" name="email" placeholder="Email">
+									<label for="floatingInput">Email</label>
+								</div>
+								<div class="input-group mb-3">
+									<div class="form-floating">
+										<input type="password" class="form-control" id="pass" name="pass" placeholder="Contraseña">
+										<label for="floatingInput">Contraseña</label>
+									</div>
+									<button type="button" class="btn btn-outline-secondary" id="bTogglePass" tabindex="-1" title="Mostrar/Ocultar contraseña">
+										<i class="fas fa-eye" id="iconPassMostrar"></i>
+										<i class="fas fa-eye-slash d-none" id="iconPassOcultar"></i>
+									</button>
+								</div>
+								<div class="text-end">
+									<a href="#" class="small" data-bs-toggle="modal" data-bs-target="#modalOlvidoContra">
+										¿Olvidaste tu contraseña?
+									</a>
+								</div>
+								<br>
+								<div class="form-floating mb-3 d-grid">
+									<button type="submit" class="btn btn-danger btn-lg" id="bIngresarLogin">Ingresar <i class="fas fa-check"></i></button>
+								</div>
+								<h6 class="mb-0 text-muted">¿No tienes cuenta? <a href="../#precios" class="f-w-600">Registrate aquí</a></h6>
+							</form>
+						</div>
 					</div>
 				</div>
 			</div>

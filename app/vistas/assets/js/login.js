@@ -1,4 +1,19 @@
 jQuery(document).ready(function ($) {
+	// mostrar/ocultar contraseña
+	$('#bTogglePass').on('click', function () {
+		var input = $('#pass');
+
+		if (input.attr('type') === 'password') {
+			input.attr('type', 'text');
+			$('#iconPassMostrar').addClass('d-none');
+			$('#iconPassOcultar').removeClass('d-none');
+		} else {
+			input.attr('type', 'password');
+			$('#iconPassOcultar').addClass('d-none');
+			$('#iconPassMostrar').removeClass('d-none');
+		}
+	});
+
 	// validate registry form
 
 	$('#formLogin').validate({

@@ -23,12 +23,14 @@
                   <th>Estatus</th>
                   <th orden="No">Detalles</th>
                   <!--<th>Sucursal</th>-->
-                  <th orden="No">Acciones</th>
+                    <th orden="No">Acciones</th>
                 </tr>
               </thead>
               <tbody>
 
               </tbody>
+              <tfoot>
+              </tfoot>
             </table>
           </div>
         </div>

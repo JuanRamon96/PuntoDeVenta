@@ -182,6 +182,11 @@ function v_configuracion() {
 				}
 			}).done(function (res) {
 				if ($.trim(res) === "Correcto") {
+					const srcFoto = $("#mosFotoPerfil").attr("src");
+					if (srcFoto) {
+						$("#imagenPerfil").attr("src", srcFoto);
+					}
+
 					Swal.fire({
 						icon: 'success',
 						title: 'Los datos fueron modificados correctamente'
@@ -245,20 +250,22 @@ jQuery(document).ready(function ($) {
 
 		reader.onload = function (e) {
 			$("#mosFotoPerfil").attr('src', e.target.result);
-			$('#bCambiarFoto').attr('disabled', false);
+			$("#quitarFoto").val('0');
+			$('#bCambiarFoto').prop('disabled', false);
 		}
 
 		reader.readAsDataURL(this.files[0]);
 	});
 
 	$(document).on('change keyup', '#formPerfilUsuario input', function() {
-		$('#bCambiarFoto').attr('disabled', false);
+		$('#bCambiarFoto').prop('disabled', false);
 	});
 
 	$(document).on('click', '#bQuitarFoto', function () {
 		$("#fotoPerfil").val("");
-		$("#mosFotoPerfil").attr('src', 'vistas/assets/images/producto-generico.jpg');
-		$('#bCambiarFoto').attr('disabled', true);
+		$("#quitarFoto").val("1");
+		$("#mosFotoPerfil").attr('src', 'vistas/assets/images/default.jpg');
+		$('#bCambiarFoto').prop('disabled', false);
 	});
 
 	$(document).on('click', '#bContraPerfil', function () {

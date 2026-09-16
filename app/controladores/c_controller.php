@@ -31,6 +31,29 @@ class controller
 	{
 		$omodelo = new m_modelo();
 		$fecha = date('Y-m-d');
+		$correo = $omodelo->link->real_escape_string($_SESSION['user_punto_venta']['Correo']);
+		$idCuenta = $omodelo->link->real_escape_string($_SESSION['user_punto_bd']);
+
+		$omodelo->_insertar('USE punto_subs');
+		$queryReg = "SELECT ID_Suscripcion, Tipo_Usuario, BD FROM suscripciones WHERE Correo = '$correo' LIMIT 1";
+		$rowReg = $omodelo->_consultar($queryReg);
+		if ($omodelo->error != 'si' && $omodelo->numerofilas > 0) {
+			if ($rowReg[0]['Tipo_Usuario'] == 'Normal') {
+				$idCuenta = $omodelo->link->real_escape_string($rowReg[0]['BD']);
+			} else {
+				$idCuenta = $omodelo->link->real_escape_string($rowReg[0]['ID_Suscripcion']);
+			}
+		}
+
+		$querySub = "SELECT Fecha_Vencimiento, Ilimitado, Timbres FROM suscripciones WHERE ID_Suscripcion = '$idCuenta' LIMIT 1";
+		$rowCuenta = $omodelo->_consultar($querySub);
+		if ($omodelo->error != 'si' && $omodelo->numerofilas > 0) {
+			$_SESSION['user_punto_venta']['Sub']['Fecha_Vencimiento'] = $rowCuenta[0]['Fecha_Vencimiento'];
+			$_SESSION['user_punto_venta']['Sub']['Ilimitado'] = $rowCuenta[0]['Ilimitado'];
+			$_SESSION['user_punto_venta']['Sub']['Timbres'] = $rowCuenta[0]['Timbres'];
+		}
+		$_SESSION['user_punto_bd'] = $idCuenta;
+		$omodelo->_insertar('USE punto_venta_' . $idCuenta);
 
 		if (strtotime($fecha) > strtotime($_SESSION['user_punto_venta']['Sub']['Fecha_Vencimiento']) && $_SESSION['user_punto_venta']['Sub']['Ilimitado'] == 0) {
 			$pagina = file_get_contents('vistas/v_suscripcion.php');
@@ -58,8 +81,19 @@ class controller
 		}
 
 		$foto = 'vistas/assets/images/default.jpg';
-		if (trim($_SESSION['user_punto_venta']['Foto']) != '' && file_exists('vistas/assets/images/usuarios/' . $_SESSION['user_punto_venta']['Foto'])) {
-			$foto = 'vistas/assets/images/usuarios/' . $_SESSION['user_punto_venta']['Foto'];
+		$fotoSesion = isset($_SESSION['user_punto_venta']['Foto']) ? trim($_SESSION['user_punto_venta']['Foto']) : '';
+		if ($fotoSesion != '') {
+			$rutaFoto = 'vistas/assets/images/usuarios/' . $fotoSesion;
+			if (file_exists($rutaFoto)) {
+				$foto = $rutaFoto;
+			} else {
+				$fotoPrefijada = $_SESSION['user_punto_bd'] . '_' . $fotoSesion;
+				$rutaPrefijada = 'vistas/assets/images/usuarios/' . $fotoPrefijada;
+				if (file_exists($rutaPrefijada)) {
+					$foto = $rutaPrefijada;
+					$_SESSION['user_punto_venta']['Foto'] = $fotoPrefijada;
+				}
+			}
 		}
 
 		$pagina = str_replace('#fotoCuenta#', $foto, $pagina);
@@ -70,6 +104,13 @@ class controller
 
 	function _contenido($vista)
 	{
+		if ($vista === 'v_dashboard') {
+			$tipo = isset($_SESSION['user_punto_venta']['Tipo_Usuario']) ? (string) $_SESSION['user_punto_venta']['Tipo_Usuario'] : '';
+			if ($tipo !== '1') {
+				return '';
+			}
+		}
+
 		$pagina = file_get_contents("vistas/$vista.php");
 		$pagina = $this->remplazar($pagina, $vista);
 
@@ -163,6 +204,7 @@ class controller
 			$subMenuImpuestos = '';
 			$menuGastos = '';
 			$menuConfiguracion = '';
+			$menuDashboard = '';
 
 			/*if ($tipoUsuario == '1' || (isset($permisos['Sucursales'][1]) && $permisos['Sucursales'][1] == '1')) {
 				$menuSucursales = '<li class="nav-item">
@@ -278,17 +320,25 @@ class controller
 			}
 
 			if ($tipoUsuario == '1') {
+				$menuDashboard = '<li class="nav-item">
+					<a href="javascript:void(0)" class="nav-link cargarVista" carga="v_dashboard" titulo="Inicio" id="bMenuDashboard"><span class="pcoded-micon"><i class="fas fa-house"></i></span><span class="pcoded-mtext">Inicio</span></a>
+				</li>';
 				$menuConfiguracion = '<li class="nav-item">
 					<a href="javascript:void(0)" class="nav-link cargarVista" carga="v_cuenta" titulo="Configuración" id="bMenuConfiguracion"><span class="pcoded-micon"><i class="fas fa-gear"></i></span><span class="pcoded-mtext">Configuración</span></a>
 				</li>';
 			}
 
 			if ($tipoUsuario == '1' || (isset($permisos['Reportes'][1]) && $permisos['Reportes'][1] == '1')) {
-				$menuReportes = '<li class="nav-item">
-					<a href="javascript:void(0)" class="nav-link cargarVista" carga="v_reportes" titulo="Reportes" id="bMenuReportes"><span class="pcoded-micon"><i class="fas fa-chart-simple"></i></span><span class="pcoded-mtext">Reportes</span></a>
+				$menuReportes = '<li class="nav-item pcoded-hasmenu">
+					<a href="javascript:void(0)" class="nav-link"><span class="pcoded-micon"><i class="fas fa-chart-simple"></i></span><span class="pcoded-mtext">Reportes</span></a>
+					<ul class="pcoded-submenu">
+						<li><a href="javascript:void(0)" class="cargarVista" carga="v_reportes" titulo="Finanzas" id="bMenuReportesFinanzas">Finanzas</a></li>
+						<li><a href="javascript:void(0)" class="cargarVista" carga="v_reportes_pagos" titulo="Pagos" id="bMenuReportesPagos">Pagos</a></li>
+					</ul>
 				</li>';
 			}
 
+			$pagina = str_replace('#menuDashboard#', $menuDashboard, $pagina);
 			$pagina = str_replace('#menuSucursales#', $menuSucursales, $pagina);
 			$pagina = str_replace('#menuProductos#', $menuProductos, $pagina);
 			$pagina = str_replace('#menuInventario#', $menuInventario, $pagina);

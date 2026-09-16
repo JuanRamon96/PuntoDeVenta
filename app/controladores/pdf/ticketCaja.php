@@ -98,6 +98,34 @@
     }
   }
 
+  $arreglo['clasificaciones'] = array();
+  $query = "SELECT IFNULL(clasificaciones.Nombre, 'Sin clasificación') AS Clasificacion,
+    SUM(detalles_ventas.Cantidad) AS Cantidad,
+    SUM(detalles_ventas.Total * ((ventas.Pago - ventas.Cambio) / NULLIF((SELECT SUM(dv2.Total) FROM detalles_ventas dv2 WHERE dv2.FK_Venta = ventas.ID_Venta), 0))) AS Total
+    FROM detalles_ventas
+    INNER JOIN ventas ON detalles_ventas.FK_Venta = ventas.ID_Venta
+    INNER JOIN detalles_caja ON ventas.FK_Detalles_Caja = detalles_caja.ID_Detalle_Caja
+    LEFT JOIN productos ON detalles_ventas.FK_Producto = productos.ID_Producto
+    LEFT JOIN clasificaciones ON productos.FK_Clasificacion = clasificaciones.ID_Clasificacion
+    WHERE detalles_caja.ID_Detalle_Caja = '$id'
+    AND ventas.Fecha_Registro >= detalles_caja.Fecha_Abrir
+    AND ventas.Fecha_Registro <= IFNULL(NULLIF(detalles_caja.Fecha_Cierre, '0000-00-00 00:00:00'), NOW())
+    AND ventas.Estatus != 2
+    GROUP BY IFNULL(clasificaciones.ID_Clasificacion, 0), IFNULL(clasificaciones.Nombre, 'Sin clasificación')
+    ORDER BY Clasificacion";
+  $row = $omodelo->_consultar($query);
+  $numerofilas = $omodelo->numerofilas;
+
+  if ($row == 'si') {
+    echo "Error: " . mysqli_error($omodelo->link);
+  }else{
+    if($numerofilas > 0){
+      for ($i=0; $i < $numerofilas; $i++) { 
+        $arreglo['clasificaciones'][$i] = array('Clasificacion' => $row[$i]['Clasificacion'], 'Cantidad' => $row[$i]['Cantidad'], 'Total' => $row[$i]['Total']);
+      }
+    }
+  }
+
   /*$arreglo['registros_ventas'] = array();
 
   $query = "SELECT ID_Venta, Total, Tipo_Pago, ((Pago - Cambio) + IFNULL((SELECT SUM(Monto) FROM ventas_pagos WHERE FK_Venta = ID_Venta AND FK_Detalle_Caja = '$id'), 0)) AS Pagado, IFNULL((SELECT CONCAT(Nombre, ' ', Primer_Apellido, Segundo_Apellido) FROM usuarios WHERE ID_Usuario = ventas.FK_Usuario), '') AS Usuario FROM ventas WHERE FK_Detalles_Caja = '$id' ORDER BY ventas.FK_Usuario, ID_Venta";
@@ -236,6 +264,26 @@
     }
   }else{
     $tablaDetallesPagosVentas = '<tr>
+      <td colspan="3">No existen registros.</td>
+    </tr>';
+  }
+
+  $totalCantClasif = 0;
+  $totalDineroClasif = 0;
+  $tablaClasificaciones = '';
+  if(count($arreglo['clasificaciones']) > 0){
+    for ($i=0; $i < count($arreglo['clasificaciones']); $i++) { 
+      $totalCantClasif += $arreglo['clasificaciones'][$i]['Cantidad'];
+      $totalDineroClasif += $arreglo['clasificaciones'][$i]['Total'];
+
+      $tablaClasificaciones .= '<tr>
+        <td>'.$arreglo['clasificaciones'][$i]['Clasificacion'].'</td>
+        <td>'.number_format($arreglo['clasificaciones'][$i]['Cantidad'], 2).'</td>
+        <td>$'.number_format($arreglo['clasificaciones'][$i]['Total'], 2).'</td>
+      </tr>';
+    }
+  }else{
+    $tablaClasificaciones = '<tr>
       <td colspan="3">No existen registros.</td>
     </tr>';
   }
@@ -522,6 +570,26 @@ $html = '<!DOCTYPE html>
             <th>Total</th>
             <th>$'.number_format($totalDetallesPagosVentas, 2).'</th>
           <tr>
+        </tfoot>
+      </table>
+      <table>
+        <caption>Ventas por clasificación</caption>
+        <thead>
+          <tr>
+            <th>Clasificación</th>
+            <th>Cantidad</th>
+            <th>Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          '.$tablaClasificaciones.'
+        </tbody>
+        <tfoot>
+          <tr>
+            <th>Total</th>
+            <th>'.number_format($totalCantClasif, 2).'</th>
+            <th>$'.number_format($totalDineroClasif, 2).'</th>
+          </tr>
         </tfoot>
       </table>
 

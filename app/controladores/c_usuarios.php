@@ -116,28 +116,61 @@ class usuarios
     $estatus = $omodelo->link->real_escape_string($estatus);
     $tipo = $omodelo->link->real_escape_string($tipo);
     $password = password_hash($omodelo->link->real_escape_string(trim($password)), PASSWORD_BCRYPT, ['cost' => 12]);
+    $bd = $omodelo->link->real_escape_string($_SESSION['user_punto_bd']);
+
+    $query = "SELECT ID_Usuario FROM usuarios WHERE Correo = '$correo' LIMIT 1";
+    $omodelo->_consultar($query);
+    if ($omodelo->error == 'si') {
+      return;
+    }
+    if ($omodelo->numerofilas > 0) {
+      echo "Duplicate entry '$correo' for key 'Correo'";
+      return;
+    }
 
     $omodelo->_insertar('USE punto_subs');
+    $query = "SELECT ID_Suscripcion FROM suscripciones WHERE Correo = '$correo' LIMIT 1";
+    $omodelo->_consultar($query);
+    if ($omodelo->error == 'si') {
+      return;
+    }
+    if ($omodelo->numerofilas > 0) {
+      echo "Duplicate entry '$correo' for key 'Correo'";
+      return;
+    }
+
     $query = "INSERT INTO suscripciones SET 
       Nombre = '$nombre $primerApellido $segundoApellido',  
 			Correo = '$correo', 
 			Tipo_Usuario = 'Normal', 
 			Fecha_Alta = NOW(), 
-      BD = '" . $_SESSION['user_punto_bd'] . "'";
+      BD = '$bd'";
     $error = $omodelo->_insertar($query);
 
     if ($error == 'si') {
-      echo "Error sub: " . mysqli_error($omodelo->link);
+      $errSub = mysqli_error($omodelo->link);
+      if (strpos($errSub, 'Duplicate entry') !== false) {
+        echo "Duplicate entry '$correo' for key 'Correo'";
+      } else {
+        echo "Error sub: " . $errSub;
+      }
       return;
-    } 
+    }
 
-    $omodelo->_insertar('USE punto_venta_' . $_SESSION['user_punto_bd']);
+    $omodelo->_insertar('USE punto_venta_' . $bd);
     $query = "INSERT INTO usuarios SET Nombre = '$nombre', Primer_Apellido = '$primerApellido', Segundo_Apellido = '$segundoApellido', Puesto = '$puesto', Correo = '$correo', Contrasena = '$password', Estatus = '$estatus', Tipo_Usuario = '$tipo', Fecha_Alta = '$fecha', Activo = 1";
     $error = $omodelo->_insertar($query);
     $status = 0;
 
     if ($error == 'si') {
-      echo "Error 1: " . mysqli_error($omodelo->link);
+      $errUser = mysqli_error($omodelo->link);
+      $omodelo->_insertar('USE punto_subs');
+      $omodelo->_insertar("DELETE FROM suscripciones WHERE Correo = '$correo' AND BD = '$bd' AND Tipo_Usuario = 'Normal'");
+      if (strpos($errUser, 'Duplicate entry') !== false) {
+        echo "Duplicate entry '$correo' for key 'Correo'";
+      } else {
+        echo "Error 1: " . $errUser;
+      }
       $status = 1;
     } else {
       $id = $omodelo->link->insert_id;
@@ -257,19 +290,59 @@ class usuarios
       $pass = ", Contrasena = '$password'";
     }
 
+    $bd = $omodelo->link->real_escape_string($_SESSION['user_punto_bd']);
+    $query = "SELECT Correo FROM usuarios WHERE ID_Usuario = '$id'";
+    $rowUsuario = $omodelo->_consultar($query);
+    if ($omodelo->error == 'si') {
+      return;
+    }
+    if ($omodelo->numerofilas == 0) {
+      echo "Error: Usuario no encontrado";
+      return;
+    }
+    $correoAnterior = $omodelo->link->real_escape_string($rowUsuario[0]['Correo']);
+
+    if (strcasecmp($correo, $correoAnterior) != 0) {
+      $query = "SELECT ID_Usuario FROM usuarios WHERE Correo = '$correo' AND ID_Usuario != '$id' LIMIT 1";
+      $omodelo->_consultar($query);
+      if ($omodelo->error == 'si') {
+        return;
+      }
+      if ($omodelo->numerofilas > 0) {
+        echo "Duplicate entry '$correo' for key 'Correo'";
+        return;
+      }
+
+      $omodelo->_insertar('USE punto_subs');
+      $query = "SELECT ID_Suscripcion FROM suscripciones WHERE Correo = '$correo' LIMIT 1";
+      $omodelo->_consultar($query);
+      if ($omodelo->error == 'si') {
+        return;
+      }
+      if ($omodelo->numerofilas > 0) {
+        echo "Duplicate entry '$correo' for key 'Correo'";
+        return;
+      }
+    }
+
     $omodelo->_insertar('USE punto_subs');
     $query = "UPDATE suscripciones SET 
       Nombre = '$nombre $primerApellido $segundoApellido',  
-			Correo = '$correo', 
-    WHERE Correo = (SELECT Correo FROM usuarios WHERE ID_Usuario = $id) AND BD = '" . $_SESSION['user_punto_bd'] . "'";
+			Correo = '$correo'
+    WHERE Correo = '$correoAnterior' AND BD = '$bd'";
     $error = $omodelo->_insertar($query);
 
     if ($error == 'si') {
-      echo "Error sub: " . mysqli_error($omodelo->link);
+      $errSub = mysqli_error($omodelo->link);
+      if (strpos($errSub, 'Duplicate entry') !== false) {
+        echo "Duplicate entry '$correo' for key 'Correo'";
+      } else {
+        echo "Error sub: " . $errSub;
+      }
       return;
-    } 
+    }
 
-    $omodelo->_insertar('USE punto_venta_' . $_SESSION['user_punto_bd']);
+    $omodelo->_insertar('USE punto_venta_' . $bd);
     $query = "UPDATE usuarios SET Nombre = '$nombre', Primer_Apellido = '$primerApellido', Segundo_Apellido = '$segundoApellido', Puesto = '$puesto', Correo = '$correo', Estatus = '$estatus', Tipo_Usuario = '$tipo' $pass WHERE ID_Usuario = $id";
     $error = $omodelo->_insertar($query);
     $status = 0;
@@ -332,17 +405,29 @@ class usuarios
 
     $id = $omodelo->link->real_escape_string($id);
     $foto = $omodelo->link->real_escape_string($foto);
+    $bd = $omodelo->link->real_escape_string($_SESSION['user_punto_bd']);
+
+    $query = "SELECT Correo FROM usuarios WHERE ID_Usuario = '$id'";
+    $rowUsuario = $omodelo->_consultar($query);
+    if ($omodelo->error == 'si') {
+      return;
+    }
+    if ($omodelo->numerofilas == 0) {
+      echo "Error: Usuario no encontrado";
+      return;
+    }
+    $correo = $omodelo->link->real_escape_string($rowUsuario[0]['Correo']);
 
     $omodelo->_insertar('USE punto_subs');
-    $query = "DELETE FROM suscripciones WHERE Correo = (SELECT Correo FROM usuarios WHERE ID_Usuario = $id) AND BD = '" . $_SESSION['user_punto_bd'] . "'";
+    $query = "DELETE FROM suscripciones WHERE Correo = '$correo' AND BD = '$bd' AND Tipo_Usuario = 'Normal'";
     $error = $omodelo->_insertar($query);
 
     if ($error == 'si') {
       echo "Error sub: " . mysqli_error($omodelo->link);
       return;
-    } 
+    }
 
-    $omodelo->_insertar('USE punto_venta_' . $_SESSION['user_punto_bd']);
+    $omodelo->_insertar('USE punto_venta_' . $bd);
     $query = "DELETE FROM usuarios WHERE ID_Usuario = $id";
     $error = $omodelo->_insertar($query);
 

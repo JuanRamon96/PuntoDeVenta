@@ -40,12 +40,26 @@ socket.on("connect", () => {
 
 jQuery(document).ready(function ($) {
   setTimeout(function () {
-    if ($("#bMenuProductos").length > 0) {
+    if ($("#bMenuDashboard").length > 0) {
+      $("#bMenuDashboard").trigger("click");
+    } else if ($("#bMenuProductos").length > 0) {
       $("#bMenuProductos").trigger("click");
     } else {
       $("#carga").hide();
     }
   }, 0);
+
+  $(document).on('click', '#vtSidebarOverlay', function () {
+    $(".pcoded-navbar").removeClass('mob-open');
+    $("#mobile-collapse,#mobile-collapse1").removeClass('on');
+  });
+
+  $(document).on('click', '.pcoded-navbar .cargarVista', function () {
+    if ($(window).width() < 992) {
+      $(".pcoded-navbar").removeClass('mob-open');
+      $("#mobile-collapse,#mobile-collapse1").removeClass('on');
+    }
+  });
   //moneda();
 
   setInterval(function () {

@@ -30,7 +30,7 @@ class registro {
 	        $responseKeys = json_decode($response,true);*/
 	       
 	        //if($responseKeys["success"]) {
-				$omodelo->_insertar("USE invitia_subs");
+				$omodelo->_insertar("USE punto_subs");
 	            $query = "INSERT INTO suscripciones SET 
 					Nombre = '$nombre', 
 					Tipo = '$tipo', 

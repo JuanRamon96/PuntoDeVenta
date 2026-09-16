@@ -281,6 +281,35 @@ class caja
         }
       }
 
+      $arreglo['clasificaciones'] = array();
+
+      $query = "SELECT IFNULL(clasificaciones.Nombre, 'Sin clasificación') AS Clasificacion,
+        SUM(detalles_ventas.Cantidad) AS Cantidad,
+        SUM(detalles_ventas.Total * ((ventas.Pago - ventas.Cambio) / NULLIF((SELECT SUM(dv2.Total) FROM detalles_ventas dv2 WHERE dv2.FK_Venta = ventas.ID_Venta), 0))) AS Total
+        FROM detalles_ventas
+        INNER JOIN ventas ON detalles_ventas.FK_Venta = ventas.ID_Venta
+        INNER JOIN detalles_caja ON ventas.FK_Detalles_Caja = detalles_caja.ID_Detalle_Caja
+        LEFT JOIN productos ON detalles_ventas.FK_Producto = productos.ID_Producto
+        LEFT JOIN clasificaciones ON productos.FK_Clasificacion = clasificaciones.ID_Clasificacion
+        WHERE detalles_caja.ID_Detalle_Caja = (SELECT ID_Detalle_Caja FROM detalles_caja WHERE FK_Caja = '$idCaja' ORDER BY ID_Detalle_Caja DESC LIMIT 1)
+        AND ventas.Fecha_Registro >= detalles_caja.Fecha_Abrir
+        AND ventas.Fecha_Registro <= IFNULL(NULLIF(detalles_caja.Fecha_Cierre, '0000-00-00 00:00:00'), NOW())
+        AND ventas.Estatus != 2
+        GROUP BY IFNULL(clasificaciones.ID_Clasificacion, 0), IFNULL(clasificaciones.Nombre, 'Sin clasificación')
+        ORDER BY Clasificacion";
+      $row = $omodelo->_consultar($query);
+      $numerofilas = $omodelo->numerofilas;
+
+      if ($row == 'si') {
+        echo "Error: " . mysqli_error($omodelo->link);
+      } else {
+        if ($numerofilas > 0) {
+          for ($i = 0; $i < $numerofilas; $i++) {
+            $arreglo['clasificaciones'][$i] = array('Clasificacion' => $row[$i]['Clasificacion'], 'Cantidad' => $row[$i]['Cantidad'], 'Total' => $row[$i]['Total']);
+          }
+        }
+      }
+
       echo json_encode($arreglo);
     } else if ($tipo == 'clientes') {
       $buscar = $omodelo->link->real_escape_string($buscar);
@@ -849,24 +878,24 @@ class caja
 
             $jsonImpuestos = htmlspecialchars(json_encode($arrayImpuestos), ENT_QUOTES, 'UTF-8');
 
-            $productos .= '<div class="col-3">
-              <div class="prodTienda"
+            $productos .= '<div class="col-6 col-sm-4 col-lg-3">
+              <div class="prodTienda vt-prod-card"
                 attrID="' . $row[$i]['ID_Producto'] . '" 
                 attrCodigo="' . $row[$i]['Codigo'] . '" 
                 attrPrecio="' . $row[$i]['Precio'] . '" 
                 attrPrecioMayoreo="' . $row[$i]['Precio_Mayoreo'] . '" 
                 attrClase="' . $row[$i]['Clase'] . '" 
                 attrExistencia="' . $row[$i]['Existencia'] . '" 
-                attrImpuestos=\'' . $jsonImpuestos . '\'
-                style="background-image: url(' . "'" . $foto . "'" . '); background-size: cover; background-position: center; border: 1px solid #EEE; border-radius: 10px; height: 120px; cursor: pointer; color: #FFF; margin-bottom: 15px;">
+                attrImpuestos=\'' . $jsonImpuestos . '\'>
 
-                <div style="height: 100%; width: 100%; background-color: rgba(0, 0, 0, 0.7); border-radius: 10px; display: flex; align-items: center;">
-                  <p class="text-center" style="font-size: 14px; margin: 0; width: 100%;">
-                    <span>' . $row[$i]['Descripcion'] . '</span><br>
-                    <span class="dinero" style="font-size: 20px;">' . number_format($row[$i]['Precio'], 2) . '</span>
-                  </p>
+                <div class="vt-prod-photo" style="background-image: url(\'' . $foto . '\');"></div>
+                <div class="vt-prod-body">
+                  <p class="vt-prod-name">' . $row[$i]['Descripcion'] . '</p>
+                  <div class="vt-prod-footer">
+                    <span class="dinero vt-prod-price">' . number_format($row[$i]['Precio'], 2) . '</span>
+                    <span class="vt-prod-add"><i class="fas fa-plus"></i></span>
+                  </div>
                 </div>
-
               </div>
             </div>';
           }

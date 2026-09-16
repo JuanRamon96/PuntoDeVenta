@@ -7,16 +7,19 @@ class configuracion {
     $tipo = $modelo->link->real_escape_string($tipo);
 
     if ($tipo == 'foto') {
-      $fotoPerfil = $_FILES['fotoPerfil'];
-      $nombreFoto = $fotoPerfil['name'];
-      $blobFoto = $fotoPerfil['tmp_name'];
+      $fotoPerfil = isset($_FILES['fotoPerfil']) ? $_FILES['fotoPerfil'] : array('name' => '', 'tmp_name' => '');
+      $nombreFoto = isset($fotoPerfil['name']) ? $fotoPerfil['name'] : '';
+      $blobFoto = isset($fotoPerfil['tmp_name']) ? $fotoPerfil['tmp_name'] : '';
       $idUsuario = $_SESSION['user_punto_venta']['ID_Usuario'];
       $bd = $_SESSION['user_punto_bd'];
       $rutaFoto = 'vistas/assets/images/usuarios/' . $bd . '_' . $idUsuario.'_'.$nombreFoto;
+      $quitarFoto = isset($quitarFoto) ? $quitarFoto : '0';
       
       $camFoto = '';
       if(trim($nombreFoto) != ''){
         $camFoto = ", Foto = '" . $bd . '_' . $idUsuario . '_' . $nombreFoto . "'";
+      } else if ($quitarFoto == '1') {
+        $camFoto = ", Foto = ''";
       }
 
       $nombrePerfil = $modelo->link->real_escape_string($nombrePerfil);
@@ -35,8 +38,13 @@ class configuracion {
       if ($status == 0) {
         if (trim($nombreFoto) != '') {
           move_uploaded_file($blobFoto, $rutaFoto);
-          $_SESSION['user_punto_venta']['Foto'] = $idUsuario.'_'.$nombreFoto;
+          $_SESSION['user_punto_venta']['Foto'] = $bd . '_' . $idUsuario . '_' . $nombreFoto;
 
+          if(trim($fotoAntes) != '' && file_exists('vistas/assets/images/usuarios/'.trim($fotoAntes))){
+            unlink('vistas/assets/images/usuarios/'.trim($fotoAntes));
+          }
+        } else if ($quitarFoto == '1') {
+          $_SESSION['user_punto_venta']['Foto'] = '';
           if(trim($fotoAntes) != '' && file_exists('vistas/assets/images/usuarios/'.trim($fotoAntes))){
             unlink('vistas/assets/images/usuarios/'.trim($fotoAntes));
           }

@@ -20,6 +20,7 @@
 	<link rel="stylesheet" href="vistas/assets/plugins/fancybox/dist/jquery.fancybox.min.css">
 	<link rel="stylesheet" href="vistas/assets/plugins/leaflet/leaflet.css">
 	<link rel="stylesheet" href="vistas/assets/css/style.css">
+	<link rel="stylesheet" href="vistas/assets/css/theme-ventastool.css?v=23">
 </head>
 
 <body class="bodyMenu">
@@ -58,10 +59,11 @@
 		<div class="navbar-wrapper  ">
 			<div class="navbar-content scroll-div ">
 				<div class="main-menu-header">
-					<img class="img-radius" width="50" height="50" src="#fotoCuenta#" id="imagenPerfil"
-						alt="User-Profile-Image">
+					<img class="vt-sidebar-logo vt-sidebar-logo-full" src="vistas/assets/images/logos/mediano.png" alt="VentasTool">
+					<img class="vt-sidebar-logo vt-sidebar-logo-icon" src="vistas/assets/images/logos/v.png" alt="VentasTool">
 				</div>
 				<ul class="nav pcoded-inner-navbar">
+					#menuDashboard#
 					<li class="nav-item pcoded-menu-caption">
 						<label>Producto</label>
 					</li>
@@ -95,6 +97,7 @@
 			</div>
 		</div>
 	</nav>
+	<div class="vt-sidebar-overlay" id="vtSidebarOverlay"></div>
 	<!-- [ navigation menu ] end -->
 	<!-- [ Header ] start -->
 	<header class="navbar pcoded-header navbar-expand-lg navbar-light header-blue">
@@ -103,10 +106,6 @@
 			<a class="mobile-menu" id="mobile-collapse" href="javascript:void(0)"><span></span></a>
 			<a href="javascript:void(0)" class="pop-search btn btn-outline-secondary btn-sm" id="bAbrirCaja"><i
 					class="fas fa-cart-shopping"></i> Caja</a>
-			<a href="javascript:void(0)" class="b-brand">
-				<!-- ========   change your logo hear   ============ -->
-				<!-- <img src="vistas/assets/images/logos/logoB.png" class="logo" width="55%"> -->
-			</a>
 			<a href="javascript:void(0)" class="mob-toggler">
 				<i class="feather icon-more-vertical"></i>
 			</a>
@@ -188,7 +187,7 @@
 				<li>
 					<div class="dropdown drp-user">
 						<a href="#" class="dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
-							<i class="feather icon-user"></i>
+							<img class="vt-header-avatar" src="#fotoCuenta#" id="imagenPerfil" alt="Perfil">
 						</a>
 						<div class="dropdown-menu dropdown-menu-right profile-notification">
 							<div class="pro-head">
@@ -270,6 +269,9 @@
 									<span class="input-group-text"><i class="fas fa-barcode"></i></span>
 									<input type="text" class="form-control" placeholder="Código" name="barCodeV"
 										id="barCodeV" autocomplete="off" required autofocus>
+									<button type="button" class="btn btn-outline-danger" id="bEscanerCamaraCaja" title="Escanear código">
+										<i class="fas fa-camera"></i>
+									</button>
 								</div>
 							</div>
 							<div class="col-md-4 col-sm-5 mb-3 d-grid">
@@ -407,6 +409,19 @@
 								<h6 class="text-muted" id="fechaHoraCaja"></h6>
 							</div>
 						</div>
+					</div>
+				</div>
+				<div id="overlayEscanerCaja" class="vt-escaner-caja d-none" aria-hidden="true">
+					<div class="vt-escaner-caja-panel">
+						<div class="vt-escaner-caja-head">
+							<span>Escanear código</span>
+							<button type="button" class="btn btn-sm btn-outline-light" id="bCerrarEscanerCaja" title="Cerrar">
+								<i class="fas fa-times"></i>
+							</button>
+						</div>
+						<video id="videoEscanerCaja" autoplay muted playsinline webkit-playsinline></video>
+						<canvas id="canvasEscanerCaja" class="d-none"></canvas>
+						<p class="vt-escaner-caja-hint">Apunta la cámara al código QR o de barras</p>
 					</div>
 				</div>
 			</div>
@@ -968,6 +983,36 @@
 							</div>
 						</div>
 					</div>
+					<hr>
+					<div class="row">
+						<div class="col-12">
+							<h3>Ventas por clasificación</h3>
+							<div class="row">
+								<div class="col-12 table-responsive">
+									<table id="tablaVentasClasificaciones"
+										class="table table-hover table-striped table-bordered table-fixed text-center"
+										style="font-size: 18px;" width="100%">
+										<thead>
+											<tr>
+												<th>Clasificación</th>
+												<th>Cantidad</th>
+												<th>Total</th>
+											</tr>
+										</thead>
+										<tbody>
+										</tbody>
+										<tfoot>
+											<tr>
+												<th>Total</th>
+												<th><span class="cantidad" id="totalCantClasificaciones">0</span></th>
+												<th><span class="dinero" id="totalDineroClasificaciones">0</span></th>
+											</tr>
+										</tfoot>
+									</table>
+								</div>
+							</div>
+						</div>
+					</div>
 				</div>
 				<div class="modal-footer text-center">
 					<button type="reset" class="btn btn-outline-danger btn-lg" data-bs-dismiss="modal">Cerrar <i
@@ -1272,20 +1317,23 @@
 	<script
 		src="https://www.paypal.com/sdk/js?client-id=ARSS_P46LzNOJiIj32nIVdBiCqiWZJiwtlA8AU3q9e6nZbVDEI4R1C8mciFIxsM1xsgcQz6rNPiElJsC&currency=MXN"></script>
 
+	<script src="vistas/assets/plugins/zxing-wasm/zxing-reader.iife.js"></script>
 	<script src="vistas/assets/js/main.js"></script>
+	<script src="vistas/assets/js/dashboard.js"></script>
 	<script src="vistas/assets/js/sucursales.js"></script>
 	<script src="vistas/assets/js/productos.js"></script>
 	<script src="vistas/assets/js/inventario.js"></script>
 	<script src="vistas/assets/js/clientes.js"></script>
-	<script src="vistas/assets/js/ventas.js"></script>
+	<script src="vistas/assets/js/ventas.js?v=1"></script>
 	<script src="vistas/assets/js/cajas.js"></script>
-	<script src="vistas/assets/js/caja.js"></script>
+	<script src="vistas/assets/js/caja.js?v=12"></script>
 	<script src="vistas/assets/js/proveedores.js"></script>
 	<script src="vistas/assets/js/compras.js"></script>
 	<script src="vistas/assets/js/hacerCompra.js"></script>
-	<script src="vistas/assets/js/usuarios.js"></script>
+	<script src="vistas/assets/js/usuarios.js?v=1"></script>
 	<script src="vistas/assets/js/reportes.js"></script>
-	<script src="vistas/assets/js/configuracion.js"></script>
+	<script src="vistas/assets/js/reportes_pagos.js?v=6"></script>
+	<script src="vistas/assets/js/configuracion.js?v=3"></script>
 	<script src="vistas/assets/js/cuenta.js"></script>
 	<script src="vistas/assets/js/gastos.js"></script>
 	<script src="vistas/assets/js/clasificaciones.js"></script>

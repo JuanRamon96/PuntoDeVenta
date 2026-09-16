@@ -5,11 +5,11 @@ class clientes {
     $omodelo = new m_modelo();
     extract($_POST);
 
-    $buscar = $omodelo->link->real_escape_string($buscar);
-    $limit = $omodelo->link->real_escape_string($limit);
-    $pagina = $omodelo->link->real_escape_string($pagina);
-    $ordenColumna = $omodelo->link->real_escape_string($ordenColumna);
-    $orden = $omodelo->link->real_escape_string($orden);
+    $buscar = isset($buscar) ? $omodelo->link->real_escape_string($buscar) : '';
+    $limit = (isset($limit) && $limit !== '') ? $omodelo->link->real_escape_string($limit) : '25';
+    $pagina = (isset($pagina) && $pagina !== '') ? $omodelo->link->real_escape_string($pagina) : '1';
+    $ordenColumna = isset($ordenColumna) ? $omodelo->link->real_escape_string($ordenColumna) : 'Nombre';
+    $orden = isset($orden) ? $omodelo->link->real_escape_string($orden) : 'asc';
     $arreglo = array();
 
     $busqueda = '';
@@ -24,21 +24,36 @@ class clientes {
       }
     }
 
-    $query = "SELECT ID_Cliente, FK_Sucursal, clientes.Latitud AS Latitud, clientes.Longitud AS Longitud, Tipo, clientes.Nombre AS Nombre, Primer_Apellido, Segundo_Apellido, Sexo, RFC, Regimen_CFDI, Razon_Social, clientes.Calle AS Calle, clientes.No_Exterior AS No_Exterior, clientes.No_Interior AS No_Interior, clientes.Colonia AS Colonia, clientes.CP AS CP, clientes.Ciudad AS Ciudad, clientes.Estado AS Estado, clientes.Pais AS Pais, clientes.Telefono AS Telefono, clientes.Segundo_Telefono AS Segundo_Telefono, clientes.Email AS Email, Contacto, Puesto_Contacto, Telefono_Contacto, Email_Contacto, sucursales.Nombre AS Sucursal, clientes.Fecha_Registro AS Fecha, DATE_FORMAT(clientes.Fecha_Registro, '%d-%m-%Y %r') AS Fecha_Registro, (SELECT COUNT(*) FROM clientes LEFT JOIN sucursales ON FK_Sucursal = ID_Sucursal $busqueda) AS Num FROM clientes LEFT JOIN sucursales ON FK_Sucursal = ID_Sucursal $busqueda ORDER BY $ordenColumna $orden LIMIT $limit OFFSET " . (($pagina * $limit) - $limit);
+    $mapOrden = array(
+      'Nombre' => 'clientes.Nombre',
+      'Tipo' => 'clientes.Tipo',
+      'Fecha' => 'clientes.Fecha_Registro',
+      'Fecha_Registro' => 'clientes.Fecha_Registro',
+      'Domicilio' => 'clientes.Calle',
+      'Contacto' => 'clientes.Telefono',
+      'Acciones' => 'clientes.ID_Cliente'
+    );
+    $ordenSql = isset($mapOrden[$ordenColumna]) ? $mapOrden[$ordenColumna] : 'clientes.Nombre';
+    $ordenDir = (strtolower($orden) === 'desc') ? 'DESC' : 'ASC';
+
+    $query = "SELECT ID_Cliente, FK_Sucursal, clientes.Latitud AS Latitud, clientes.Longitud AS Longitud, Tipo, clientes.Nombre AS Nombre, Primer_Apellido, Segundo_Apellido, Sexo, RFC, Regimen_CFDI, Razon_Social, clientes.Calle AS Calle, clientes.No_Exterior AS No_Exterior, clientes.No_Interior AS No_Interior, clientes.Colonia AS Colonia, clientes.CP AS CP, clientes.Ciudad AS Ciudad, clientes.Estado AS Estado, clientes.Pais AS Pais, clientes.Telefono AS Telefono, clientes.Segundo_Telefono AS Segundo_Telefono, clientes.Email AS Email, Contacto, Puesto_Contacto, Telefono_Contacto, Email_Contacto, sucursales.Nombre AS Sucursal, clientes.Fecha_Registro AS Fecha, DATE_FORMAT(clientes.Fecha_Registro, '%d-%m-%Y %r') AS Fecha_Registro, (SELECT COUNT(*) FROM clientes LEFT JOIN sucursales ON FK_Sucursal = ID_Sucursal $busqueda) AS Num FROM clientes LEFT JOIN sucursales ON FK_Sucursal = ID_Sucursal $busqueda ORDER BY $ordenSql $ordenDir LIMIT $limit OFFSET " . (($pagina * $limit) - $limit);
     $row = $omodelo->_consultar($query);
     $numerofilas = $omodelo->numerofilas;
 
     if ($row == 'si') {
-      echo "Error: " . mysqli_error($omodelo->link);
+      $arreglo['data'] = array();
+      $arreglo['totales'] = array('NumRows' => 0);
     } else {
       if ($numerofilas > 0) {
         for ($i = 0; $i < $numerofilas; $i++) {
           $bModificar = '';
           $bEliminar = '';
-          if ($_SESSION['user_punto_venta']['Tipo_Usuario'] == 1 || $_SESSION['user_punto_venta']['Permisos']['Clientes'][3] == '1') {
+          $tipoUsuario = isset($_SESSION['user_punto_venta']['Tipo_Usuario']) ? $_SESSION['user_punto_venta']['Tipo_Usuario'] : '';
+          $permisosClientes = (isset($_SESSION['user_punto_venta']['Permisos']['Clientes']) && is_array($_SESSION['user_punto_venta']['Permisos']['Clientes'])) ? $_SESSION['user_punto_venta']['Permisos']['Clientes'] : array();
+          if ($tipoUsuario == '1' || (isset($permisosClientes[3]) && $permisosClientes[3] == '1')) {
             $bModificar = '<button type="button" class="btn btn-sm btn-warning bModificarCliente" title="Modificar Cliente" attrID="' . $row[$i]['ID_Cliente'] . '"><i class="fas fa-pencil"></i></button>';
           }
-          if ($_SESSION['user_punto_venta']['Tipo_Usuario'] == 1 || $_SESSION['user_punto_venta']['Permisos']['Clientes'][4] == '1') {
+          if ($tipoUsuario == '1' || (isset($permisosClientes[4]) && $permisosClientes[4] == '1')) {
             $bEliminar = '<button type="button" class="btn btn-sm btn-danger bEliminarCliente" title="Eliminar Cliente" attrID="' . $row[$i]['ID_Cliente'] . '"><i class="fas fa-trash"></i></button>';
           }
 
@@ -114,8 +129,10 @@ class clientes {
           }
 
           $ubicacion = '';
-          if(trim($row[$i]['Latitud']) != '' && trim($row[$i]['Longitud']) != ''){
-            $ubicacion = '<br><a class="btn btn-link btn-sm" href="https://www.google.com/maps?q='.trim($row[$i]['Latitud']).','.trim($row[$i]['Longitud']).'" target="_blank"><i class="fa-solid fa-location-dot"></i> Ubicación</a>';
+          $latitud = isset($row[$i]['Latitud']) ? trim((string) $row[$i]['Latitud']) : '';
+          $longitud = isset($row[$i]['Longitud']) ? trim((string) $row[$i]['Longitud']) : '';
+          if ($latitud != '' && $longitud != '') {
+            $ubicacion = '<br><a class="btn btn-link btn-sm" href="https://www.google.com/maps?q='.$latitud.','.$longitud.'" target="_blank"><i class="fa-solid fa-location-dot"></i> Ubicación</a>';
           }
 
           $arreglo['data'][$i] = array(
@@ -133,7 +150,8 @@ class clientes {
       }
     }
 
-    echo json_encode($arreglo);
+    $json = json_encode($arreglo, JSON_UNESCAPED_UNICODE);
+    echo ($json === false) ? '{"data":[],"totales":{"NumRows":0}}' : $json;
   }
 
   public function _insertar() {

@@ -106,7 +106,7 @@ function guardarUsuario() {
 
       tablaUsuarios();
       $('#modalUsuarios').modal('hide');
-    }else if ($.trim(res).includes(`Duplicate entry '${data.get('correo')}' for key 'Correo'`)) {
+    }else if ($.trim(res).includes('Duplicate entry')) {
       Swal.fire({
         icon: 'error',
         title: 'Oops...',
@@ -253,7 +253,7 @@ jQuery(document).ready($ => {
             $("#modalUsuarios").modal('hide');
           }else{
             Swal.fire({
-              icon: 'success',
+              icon: 'error',
               title: 'Oops',
               text: 'Error inesperado al eliminar el usuario'
             });

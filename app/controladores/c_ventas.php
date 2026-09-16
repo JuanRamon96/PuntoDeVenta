@@ -55,7 +55,11 @@ class Ventas
       Email, 
       CP,
       (Pago - Cambio) + IFNULL((SELECT SUM(Monto) FROM ventas_pagos WHERE FK_Venta = ID_Venta), 0) AS TotalPagado, 
-      (SELECT COUNT(*) FROM ventas LEFT JOIN detalles_caja ON FK_Detalles_caja = ID_Detalle_Caja LEFT JOIN cajas ON ID_Caja = FK_Caja LEFT JOIN clientes ON FK_Cliente = ID_Cliente $busqueda) AS Num 
+      (SELECT COUNT(*) FROM ventas LEFT JOIN detalles_caja ON FK_Detalles_caja = ID_Detalle_Caja LEFT JOIN cajas ON ID_Caja = FK_Caja LEFT JOIN clientes ON FK_Cliente = ID_Cliente $busqueda) AS Num,
+      IFNULL((SELECT SUM(ventas.Total) FROM ventas LEFT JOIN detalles_caja ON FK_Detalles_caja = ID_Detalle_Caja LEFT JOIN cajas ON ID_Caja = FK_Caja LEFT JOIN clientes ON FK_Cliente = ID_Cliente $busqueda), 0) AS SumTotal,
+      IFNULL((SELECT SUM((ventas.Pago - ventas.Cambio) + IFNULL((SELECT SUM(Monto) FROM ventas_pagos WHERE FK_Venta = ventas.ID_Venta), 0)) FROM ventas LEFT JOIN detalles_caja ON FK_Detalles_caja = ID_Detalle_Caja LEFT JOIN cajas ON ID_Caja = FK_Caja LEFT JOIN clientes ON FK_Cliente = ID_Cliente $busqueda), 0) AS SumPagado,
+      IFNULL((SELECT SUM(GREATEST(0, ventas.Total - ((ventas.Pago - ventas.Cambio) + IFNULL((SELECT SUM(Monto) FROM ventas_pagos WHERE FK_Venta = ventas.ID_Venta), 0)))) FROM ventas LEFT JOIN detalles_caja ON FK_Detalles_caja = ID_Detalle_Caja LEFT JOIN cajas ON ID_Caja = FK_Caja LEFT JOIN clientes ON FK_Cliente = ID_Cliente $busqueda), 0) AS SumRestante,
+      IFNULL((SELECT SUM(GREATEST(0, ((ventas.Pago - ventas.Cambio) + IFNULL((SELECT SUM(Monto) FROM ventas_pagos WHERE FK_Venta = ventas.ID_Venta), 0)) - ventas.Total)) FROM ventas LEFT JOIN detalles_caja ON FK_Detalles_caja = ID_Detalle_Caja LEFT JOIN cajas ON ID_Caja = FK_Caja LEFT JOIN clientes ON FK_Cliente = ID_Cliente $busqueda), 0) AS SumAFavor 
     FROM ventas LEFT JOIN detalles_caja ON FK_Detalles_caja = ID_Detalle_Caja LEFT JOIN cajas ON ID_Caja = FK_Caja 
     LEFT JOIN clientes ON FK_Cliente = ID_Cliente $busqueda ORDER BY $ordenColumna $orden LIMIT $limit OFFSET " . (($pagina * $limit) - $limit);
     $row = $omodelo->_consultar($query);
@@ -155,7 +159,10 @@ class Ventas
           );
         }
 
-        $arreglo['totales'] = array('NumRows' => $row[0]['Num']);
+        $arreglo['totales'] = array(
+          'NumRows' => $row[0]['Num'],
+          'Total' => '<b>Total:</b> <span class="dinero">' . $row[0]['SumTotal'] . '</span><br><b>Pagado:</b> <span class="dinero">' . $row[0]['SumPagado'] . '</span><br><b>Restante:</b> <span class="dinero">' . $row[0]['SumRestante'] . '</span><br><b>A favor:</b> <span class="dinero">' . $row[0]['SumAFavor'] . '</span>'
+        );
       }
     }
 

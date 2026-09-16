@@ -3,6 +3,17 @@ const audio2 = new Audio('vistas/assets/media/sounds/notBip.mp3');
 let tipoDescuento = 0;
 let procesandoCobro = false;
 
+function esDispositivoIOS() {
+  var ua = navigator.userAgent || '';
+  if (/iPad|iPhone|iPod/.test(ua)) return true;
+  return navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
+}
+
+function imprimirTicketCaja(src) {
+  if (esDispositivoIOS()) return;
+  $("#printer").html('<iframe id="iframePrint" src="' + src + '" onload="document.getElementById(\'iframePrint\').contentWindow.print()"></iframe>');
+}
+
 let cantidadGranel = IMask(
   document.getElementById('cantidadGranel'),
   {
@@ -461,6 +472,226 @@ const modales = [
   '#modalClienteBus'
 ];
 
+var escanerCajaIniciando = false;
+var aplicandoCodigoEscanerCaja = false;
+var streamEscanerCaja = null;
+var timerZXingEscanerCaja = null;
+var escaneandoFrameZXing = false;
+var zxingModuloPromesa = null;
+
+function overlayEscanerCajaVisible() {
+  return $('#overlayEscanerCaja').length && !$('#overlayEscanerCaja').hasClass('d-none');
+}
+
+function elementoFullscreenCaja() {
+  return document.fullscreenElement
+    || document.webkitFullscreenElement
+    || document.mozFullScreenElement
+    || document.msFullscreenElement
+    || null;
+}
+
+// Carga el módulo WASM completo antes de empezar a escanear (evita perder los primeros
+// segundos mientras se descarga/compila el .wasm de ~1MB).
+function prepararZXingCaja() {
+  if (!window.ZXingWASM) {
+    return Promise.reject(new Error('No se pudo cargar el lector de códigos (ZXingWASM no está disponible).'));
+  }
+  if (!zxingModuloPromesa) {
+    zxingModuloPromesa = ZXingWASM.prepareZXingModule({
+      overrides: {
+        locateFile: function (path) {
+          return 'vistas/assets/plugins/zxing-wasm/' + path;
+        }
+      },
+      fireImmediately: true
+    }).catch(function (err) {
+      zxingModuloPromesa = null;
+      throw err;
+    });
+  }
+  return zxingModuloPromesa;
+}
+
+function mensajeErrorEscanerCaja(err) {
+  var nombre = (err && err.name) ? String(err.name) : '';
+  var detalle = String((err && err.message) || err || '');
+  var inseguro = (window.isSecureContext === false);
+
+  if (nombre === 'NotFoundError' || /Requested device not found/i.test(detalle)) {
+    return 'No se encontró una cámara en este equipo.';
+  }
+  if (nombre === 'NotReadableError' || /Could not start video/i.test(detalle)) {
+    return 'La cámara está ocupada por otra aplicación. Ciérrala y vuelve a intentar.';
+  }
+  if (inseguro) {
+    return 'En el celular el navegador no pide permiso si entras por HTTP. Tiene que ser HTTPS; con http:// y la IP de la red bloquea la cámara sin preguntar.';
+  }
+  if (nombre === 'NotAllowedError' || /NotAllowedError|Permission/i.test(nombre + ' ' + detalle)) {
+    return 'La cámara está bloqueada para este sitio. En Ajustes del navegador permite la cámara para este sitio y recarga la página.';
+  }
+  return 'No se pudo abrir la cámara. Permite el acceso e inténtalo de nuevo.';
+}
+
+function detenerTracksEscanerCaja() {
+  if (!streamEscanerCaja) return;
+  streamEscanerCaja.getTracks().forEach(function (track) {
+    track.stop();
+  });
+  streamEscanerCaja = null;
+}
+
+function detenerEscanerCaja() {
+  $('#overlayEscanerCaja').addClass('d-none').attr('aria-hidden', 'true');
+  escanerCajaIniciando = false;
+  escaneandoFrameZXing = false;
+
+  if (timerZXingEscanerCaja) {
+    clearInterval(timerZXingEscanerCaja);
+    timerZXingEscanerCaja = null;
+  }
+
+  var video = document.getElementById('videoEscanerCaja');
+  if (video) {
+    video.pause();
+    video.srcObject = null;
+  }
+  detenerTracksEscanerCaja();
+  $('.vt-escaner-caja-hint').text('Apunta la cámara al código QR o de barras');
+}
+
+function aplicarCodigoEscanerCaja(codigo) {
+  codigo = $.trim(String(codigo || ''));
+  if (!codigo || aplicandoCodigoEscanerCaja) return;
+
+  aplicandoCodigoEscanerCaja = true;
+  detenerEscanerCaja();
+  $('#barCodeV').val(codigo);
+  $('#formAgreProd').trigger('submit');
+  setTimeout(function () {
+    aplicandoCodigoEscanerCaja = false;
+  }, 500);
+}
+
+function intentarEnfoqueContinuoCaja() {
+  if (!streamEscanerCaja) return;
+  var track = streamEscanerCaja.getVideoTracks()[0];
+  if (!track || typeof track.getCapabilities !== 'function') return;
+
+  try {
+    var capacidades = track.getCapabilities();
+    if (capacidades && capacidades.focusMode && capacidades.focusMode.indexOf('continuous') !== -1) {
+      track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }).catch(function () {});
+    }
+  } catch (e) {}
+}
+
+// Decodifica con el motor real de ZXing (C++ compilado a WebAssembly). Es notablemente más
+// tolerante que los lectores en JS puro con imágenes borrosas o de poca luz, como las de
+// muchas webcams de PC.
+function escanearFrameZXingCaja() {
+  if (escaneandoFrameZXing || aplicandoCodigoEscanerCaja || !window.ZXingWASM) return;
+
+  var video = document.getElementById('videoEscanerCaja');
+  var canvas = document.getElementById('canvasEscanerCaja');
+  if (!video || !canvas || video.readyState < 2 || !video.videoWidth) return;
+
+  escaneandoFrameZXing = true;
+
+  var ancho = video.videoWidth;
+  var alto = video.videoHeight;
+  var maxAncho = 1000;
+  var escala = ancho > maxAncho ? maxAncho / ancho : 1;
+  canvas.width = Math.round(ancho * escala);
+  canvas.height = Math.round(alto * escala);
+
+  var ctx = canvas.getContext('2d', { willReadFrequently: true });
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+  var imageData;
+  try {
+    imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  } catch (e) {
+    escaneandoFrameZXing = false;
+    return;
+  }
+
+  ZXingWASM.readBarcodesFromImageData(imageData, {
+    tryHarder: true,
+    tryRotate: true,
+    tryInvert: true,
+    tryDownscale: true,
+    maxNumberOfSymbols: 1,
+    formats: []
+  }).then(function (resultados) {
+    var valido = resultados && resultados.find(function (r) { return r.isValid && r.text; });
+    if (valido) {
+      aplicarCodigoEscanerCaja(valido.text);
+    }
+  }).catch(function (err) {
+    console.error('Error ZXing al leer el código:', err);
+  }).then(function () {
+    escaneandoFrameZXing = false;
+  });
+}
+
+function iniciarEscanerCaja() {
+  if (overlayEscanerCajaVisible() || escanerCajaIniciando) return;
+
+  if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== 'function') {
+    Swal.fire({ icon: 'error', title: 'Cámara', text: 'Este navegador no permite usar la cámara.' });
+    return;
+  }
+
+  escanerCajaIniciando = true;
+  $('#overlayEscanerCaja').removeClass('d-none').attr('aria-hidden', 'false');
+  $('.vt-escaner-caja-hint').text('Cargando lector de códigos...');
+
+  // Una sola petición de cámara para toda la sesión de escaneo. En paralelo se termina
+  // de cargar/compilar el módulo WASM del lector, así el primer frame no se pierde.
+  Promise.all([
+    navigator.mediaDevices.getUserMedia({
+      audio: false,
+      video: {
+        facingMode: 'environment',
+        width: { min: 640, ideal: 1280, max: 1920 },
+        height: { min: 480, ideal: 720, max: 1080 }
+      }
+    }).catch(function () {
+      return navigator.mediaDevices.getUserMedia({ audio: false, video: true });
+    }),
+    prepararZXingCaja()
+  ]).then(function (resultados) {
+    var stream = resultados[0];
+    streamEscanerCaja = stream;
+    var video = document.getElementById('videoEscanerCaja');
+    if (!video) throw new Error('No se encontró el visor de cámara.');
+    video.setAttribute('playsinline', 'true');
+    video.setAttribute('webkit-playsinline', 'true');
+    video.muted = true;
+    video.srcObject = stream;
+
+    var play = video.play();
+    if (play && typeof play.catch === 'function') {
+      play.catch(function () {});
+    }
+
+    intentarEnfoqueContinuoCaja();
+    $('.vt-escaner-caja-hint').text('Apunta la cámara al código QR o de barras');
+    timerZXingEscanerCaja = setInterval(escanearFrameZXingCaja, 220);
+    escanerCajaIniciando = false;
+  }).catch(function (err) {
+    console.error('Error al iniciar el escáner:', err);
+    escanerCajaIniciando = false;
+    detenerEscanerCaja();
+    Swal.fire({
+      icon: 'error',
+      title: 'Cámara',
+      text: mensajeErrorEscanerCaja(err)
+    });
+  });
+}
+
 function tablaBuscarProductos() {
   ajaxMyDatatable({
     "table": $("#tablaBuscarProductos"),
@@ -686,6 +917,14 @@ $(document).on('keydown', function (evt) {
     evt.preventDefault();
   }
   if (!$("#modalCaja").is(':visible')) return
+
+  if (overlayEscanerCajaVisible()) {
+    if (evt.key === "Escape") {
+      evt.preventDefault();
+      detenerEscanerCaja();
+    }
+    return;
+  }
 
   if ($(".buscadorMyDataTable[tabla=tablaBuscarProductos]").is(":focus")) {
     var fila = $("#tablaBuscarProductos").children('tbody').children('tr.activa').index();
@@ -1031,7 +1270,12 @@ jQuery(document).ready(function ($) {
   });
 
   $(document).on('webkitfullscreenchange mozfullscreenchange fullscreenchange MSFullscreenChange', function () {
-    if (document.webkitFullscreenElement == null) {
+    if (overlayEscanerCajaVisible() || escanerCajaIniciando) {
+      return;
+    }
+
+    if (!elementoFullscreenCaja()) {
+      detenerEscanerCaja();
       modales.forEach(modal => {
         $(modal).modal('hide');
       });
@@ -1042,8 +1286,31 @@ jQuery(document).ready(function ($) {
   });
 
   $(document).on('click', '#bCerrarVenCaja', function () {
+    detenerEscanerCaja();
     $("#modalCaja").modal('hide');
     document.exitFullscreen();
+  });
+
+  $(document).on('click', '#bEscanerCamaraCaja', function (event) {
+    event.preventDefault();
+    iniciarEscanerCaja();
+  });
+
+  $(document).on('click', '#bCerrarEscanerCaja', function (event) {
+    event.preventDefault();
+    detenerEscanerCaja();
+    $("#barCodeV").focus();
+  });
+
+  $(document).on('click', '#overlayEscanerCaja', function (event) {
+    if (event.target.id === 'overlayEscanerCaja') {
+      detenerEscanerCaja();
+      $("#barCodeV").focus();
+    }
+  });
+
+  $(document).on('hidden.bs.modal', '#modalCaja', function () {
+    detenerEscanerCaja();
   });
 
   $(document).on('submit', '#formAgreProd', function (event) {
@@ -2503,6 +2770,13 @@ jQuery(document).ready(function ($) {
     }
   });
 
+  $(document).on('change', '#metodoPago', function (event) {
+    if($(this).val() == 'Crédito'){
+      totalPagoCobrar.value = '';
+      totalPagoCobrar.value = '0';
+    }
+  });
+
   $(document).on('keydown', '#detallesCobrar', function (event) {
     switch (event.keyCode) {
       case 13: // Enter
@@ -2577,9 +2851,9 @@ jQuery(document).ready(function ($) {
             .done(function (res) {
               if ($.trim(res) == 'Correcto') {
                 if (tipoCobrar == 0) {
-                  $("#printer").html(`<iframe id="iframePrint" src="controladores/pdf/ticketAbrir.php" onload="document.getElementById('iframePrint').contentWindow.print()"></iframe>`);
+                  imprimirTicketCaja('controladores/pdf/ticketAbrir.php');
                 } else {
-                  $("#printer").html(`<iframe id="iframePrint" src="controladores/pdf/ticketVenta.php?id=` + $("#bCobrarImprimir").attr('attrID') + `" onload="document.getElementById('iframePrint').contentWindow.print()"></iframe>`);
+                  imprimirTicketCaja('controladores/pdf/ticketVenta.php?id=' + $("#bCobrarImprimir").attr('attrID'));
                 }
 
                 $("#MCobrar").modal('hide');
@@ -2598,6 +2872,7 @@ jQuery(document).ready(function ($) {
             })
             .always(function () {
               $("#carga").hide();
+              procesandoCobro = false;
             });
         } else {
           var total = parseFloat($("#totalCobrar").text().replace('$', '').replace(searchRegExp, ''));
@@ -2669,9 +2944,9 @@ jQuery(document).ready(function ($) {
                 var separa = $.trim(res).split('~');
                 if (separa[0] == 'Correcto') {
                   if (tipoCobrar == 0) {
-                    $("#printer").html(`<iframe id="iframePrint" src="controladores/pdf/ticketAbrir.php" onload="document.getElementById('iframePrint').contentWindow.print()"></iframe>`);
+                    imprimirTicketCaja('controladores/pdf/ticketAbrir.php');
                   } else {
-                    $("#printer").html(`<iframe id="iframePrint" src="controladores/pdf/ticketVenta.php?id=` + separa[1] + `" onload="document.getElementById('iframePrint').contentWindow.print()"></iframe>`);
+                    imprimirTicketCaja('controladores/pdf/ticketVenta.php?id=' + separa[1]);
                   }
 
                   if (localStorage.getItem("cajaTouch") === "true") {
@@ -2740,6 +3015,9 @@ jQuery(document).ready(function ($) {
     $("#tablaTotalPagosCompras").children('tbody').html('');
     $("#tablaTotalVentasUsuarios").children('tbody').html('');
     $("#tablaDetallesPagosVentas").children('tbody').html('');
+    $("#tablaVentasClasificaciones").children('tbody').html('');
+    $("#totalCantClasificaciones").text('0');
+    $("#totalDineroClasificaciones").text('0');
 
     const data = `metodo=consultar&accion=caja&tipo=corte&idCaja=${$(this).attr('attrID')}`;
 
@@ -2904,6 +3182,27 @@ jQuery(document).ready(function ($) {
         </tr>`);
         }
 
+        var totalCantClasif = 0, totalDineroClasif = 0;
+        if (resA.clasificaciones && resA.clasificaciones.length > 0) {
+          resA.clasificaciones.forEach(clasif => {
+            totalCantClasif += parseFloat(clasif.Cantidad);
+            totalDineroClasif += parseFloat(clasif.Total);
+
+            $("#tablaVentasClasificaciones").children('tbody').append(`<tr>
+            <td>`+ clasif.Clasificacion + `</td>
+            <td><span class="cantidad">`+ clasif.Cantidad + `</span></td>
+            <td><span class="dinero" style="color: green;">`+ clasif.Total + `</span></td>
+          </tr>`);
+          });
+        } else {
+          $("#tablaVentasClasificaciones").children('tbody').append(`<tr>
+          <td colspan="3">No existen registros.</td>
+        </tr>`);
+        }
+
+        $("#totalCantClasificaciones").text(totalCantClasif);
+        $("#totalDineroClasificaciones").text(totalDineroClasif);
+
         var balance = (parseFloat(resA.detalles.Monto_Abrir) + totalVentas + totalEntradas + totalPagosVentas) - (totalPagosCompras + totalSalidas);
         $("#balanceCaja").text(balance);
 
@@ -2949,6 +3248,7 @@ jQuery(document).ready(function ($) {
   });
 
   $(document).on('click', '#bDejarCaja', function () {
+    detenerEscanerCaja();
     const data = 'metodo=modificar&accion=caja&tipo=dejar&idCaja=' + $(this).attr('attrID');
 
     $.ajax({

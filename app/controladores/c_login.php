@@ -24,8 +24,17 @@ class login
 				if ($rowSub[0]['Tipo_Usuario'] == 'Normal') {
 					$bd = $rowSub[0]['BD'];
 				}
+				$bdEsc = $omodelo->link->real_escape_string($bd);
 
-				$omodelo->_insertar('USE punto_venta_'.$bd);
+				$queryCuenta = "SELECT Fecha_Vencimiento, Ilimitado, Timbres FROM suscripciones WHERE ID_Suscripcion = '$bdEsc' LIMIT 1";
+				$rowCuenta = $omodelo->_consultar($queryCuenta);
+				if ($omodelo->error != 'si' && $omodelo->numerofilas > 0) {
+					$rowSub[0]['Fecha_Vencimiento'] = $rowCuenta[0]['Fecha_Vencimiento'];
+					$rowSub[0]['Ilimitado'] = $rowCuenta[0]['Ilimitado'];
+					$rowSub[0]['Timbres'] = $rowCuenta[0]['Timbres'];
+				}
+
+				$omodelo->_insertar('USE punto_venta_'.$bdEsc);
 				$_SESSION['user_punto_bd'] = $bd;
 			} else {
 				echo "No existe";
