@@ -256,32 +256,127 @@ jQuery(document).ready(function ($) {
   let reader;
   let decoder = new TextDecoder();
 
-  $(document).on('click', '#bConectarBascula', async () => {
+  // Bandera global: mientras se muestra el selector de puertos del navegador, Chrome/Edge
+  // salen de pantalla completa. caja.js la revisa para no cerrar la caja en ese momento.
+  window.conectandoBascula = false;
+
+  function errorSoporteBascula() {
+    if (!window.isSecureContext) {
+      return 'La conexion a la bascula solo funciona en un sitio seguro. Abre el sistema desde http://localhost o con https (no por la IP de la red).';
+    }
+    if (!('serial' in navigator)) {
+      return 'Este navegador no permite conectar la bascula. Usa Google Chrome o Microsoft Edge en una computadora.';
+    }
+    return null;
+  }
+
+  async function abrirPuertoBascula(puerto) {
     try {
-      port = await navigator.serial.requestPort();
-      await port.open({ baudRate: 9600 });
-
-      Swal.fire({
-        icon: 'success',
-        title: 'La basucla se conecto correctamente'
-      });
-
-      reader = port.readable.getReader();
+      await puerto.open({ baudRate: 9600 });
     } catch (err) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Oops...',
-        text: "Error al conectar con la bascula: " + err
-      });
+      // Si el puerto ya estaba abierto lo reutilizamos
+      if (!(err && err.name === 'InvalidStateError')) {
+        throw err;
+      }
+    }
+
+    if (reader) {
+      try { reader.releaseLock(); } catch (e) {}
+    }
+
+    port = puerto;
+    reader = port.readable.getReader();
+    $('#bConectarBascula').html('Bascula conectada <i class="fa-solid fa-check"></i>');
+  }
+
+  function volverPantallaCompleta() {
+    if ($('#modalCaja').is(':visible') && !document.fullscreenElement && document.documentElement.requestFullscreen) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    }
+  }
+
+  // Al abrir el modal de granel se reutiliza un puerto ya autorizado (sin mostrar el selector)
+  $(document).on('shown.bs.modal', '#MGranel', async () => {
+    if (port || errorSoporteBascula()) {
+      return;
+    }
+
+    try {
+      const puertos = await navigator.serial.getPorts();
+      if (puertos.length > 0) {
+        await abrirPuertoBascula(puertos[0]);
+      }
+    } catch (err) {
+      console.log('No se pudo reconectar la bascula: ', err);
     }
   });
 
-  $(document).on('click', '#bOptenerPeso', async () => {
+  $(document).on('click', '#bConectarBascula', function (event) {
+    event.preventDefault();
+
+    const error = errorSoporteBascula();
+    if (error) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Oops...',
+        text: error
+      });
+      return;
+    }
+
+    if (port) {
+      Swal.fire({
+        icon: 'info',
+        title: 'La bascula ya esta conectada'
+      });
+      return;
+    }
+
+    // requestPort() debe llamarse directo en el click (sin await/ajax/setTimeout antes)
+    window.conectandoBascula = true;
+    navigator.serial.requestPort()
+      .then(puerto => abrirPuertoBascula(puerto))
+      .then(() => {
+        window.conectandoBascula = false;
+        Swal.fire({
+          icon: 'success',
+          title: 'La bascula se conecto correctamente'
+        }).then(() => {
+          // El click en "OK" es un gesto del usuario, permite volver a pantalla completa
+          volverPantallaCompleta();
+          $('#cantidadGranel').focus();
+        });
+      })
+      .catch(err => {
+        window.conectandoBascula = false;
+        let texto = 'Error al conectar con la bascula: ' + err;
+
+        if (err && err.name === 'NotFoundError') {
+          texto = 'No se selecciono ningun puerto. Verifica que la bascula este conectada y encendida, y elige su puerto en la ventana del navegador.';
+        } else if (err && err.name === 'SecurityError') {
+          texto = 'El navegador bloqueo el acceso a los puertos. Revisa los permisos del sitio o abre el sistema desde http://localhost.';
+        } else if (err && err.name === 'NetworkError') {
+          texto = 'No se pudo abrir el puerto. Puede estar en uso por otro programa u otra pestana.';
+        }
+
+        Swal.fire({
+          icon: 'error',
+          title: 'Oops...',
+          text: texto
+        }).then(() => {
+          volverPantallaCompleta();
+        });
+      });
+  });
+
+  $(document).on('click', '#bOptenerPeso', async function (event) {
+    event.preventDefault();
+
     if (!port) {
       Swal.fire({
         icon: 'warning',
         title: 'Oops...',
-        text: "Primero presiona el boton para conectar la báscula"
+        text: "Primero presiona el boton para conectar la b\u00e1scula"
       });
 
       return;

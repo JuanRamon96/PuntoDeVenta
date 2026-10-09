@@ -1270,7 +1270,7 @@ jQuery(document).ready(function ($) {
   });
 
   $(document).on('webkitfullscreenchange mozfullscreenchange fullscreenchange MSFullscreenChange', function () {
-    if (overlayEscanerCajaVisible() || escanerCajaIniciando) {
+    if (overlayEscanerCajaVisible() || escanerCajaIniciando || window.conectandoBascula) {
       return;
     }
 
