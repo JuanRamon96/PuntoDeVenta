@@ -491,6 +491,23 @@ function elementoFullscreenCaja() {
     || null;
 }
 
+// Entra a pantalla completa solo si no lo esta ya (evita llamadas dobles) y sin errores sin capturar.
+// Debe llamarse directo desde un click del usuario.
+function entrarPantallaCompletaCaja() {
+  if (elementoFullscreenCaja() || !document.documentElement.requestFullscreen) {
+    return;
+  }
+  document.documentElement.requestFullscreen().catch(function (err) {
+    console.log('No se pudo entrar a pantalla completa: ', err);
+  });
+}
+
+function salirPantallaCompletaCaja() {
+  if (elementoFullscreenCaja() && document.exitFullscreen) {
+    document.exitFullscreen().catch(function () {});
+  }
+}
+
 // Carga el módulo WASM completo antes de empezar a escanear (evita perder los primeros
 // segundos mientras se descarga/compila el .wasm de ~1MB).
 function prepararZXingCaja() {
@@ -1190,6 +1207,9 @@ $(document).on('keydown', function (evt) {
 jQuery(document).ready(function ($) {
 
   document.getElementById("bAbrirCaja").addEventListener("click", function () {
+    // Pantalla completa dentro del click (gesto del usuario), antes del ajax
+    window.conectandoBascula = false;
+    entrarPantallaCompletaCaja();
     var data = "metodo=detalles&accion=caja&tipo=consultarCaja";
 
     $.ajax({
@@ -1203,6 +1223,7 @@ jQuery(document).ready(function ($) {
       .done(function (res) {
         //console.log(res);
         if ($.trim(res) === "No") {
+          salirPantallaCompletaCaja();
           $('#bMenuCajas').trigger('click');
         } else {
           const resJson = JSON.parse($.trim(res));
@@ -1213,7 +1234,7 @@ jQuery(document).ready(function ($) {
           $('#bCorteCaja').attr('attrID', resJson.ID_Caja);
           $('#modalCaja').modal('show');
 
-          document.documentElement.requestFullscreen();
+          entrarPantallaCompletaCaja();
 
           setTimeout(() => {
             $('#barCodeV').focus();
@@ -1288,7 +1309,7 @@ jQuery(document).ready(function ($) {
   $(document).on('click', '#bCerrarVenCaja', function () {
     detenerEscanerCaja();
     $("#modalCaja").modal('hide');
-    document.exitFullscreen();
+    salirPantallaCompletaCaja();
   });
 
   $(document).on('click', '#bEscanerCamaraCaja', function (event) {
@@ -3239,12 +3260,12 @@ jQuery(document).ready(function ($) {
 
   $(document).on('click', '#bHacerCorte', function () {
     cerrarCaja(false);
-    document.exitFullscreen();
+    salirPantallaCompletaCaja();
   });
 
   $(document).on('click', '#bHacerCorteImprimir', function () {
     cerrarCaja(true);
-    document.exitFullscreen();
+    salirPantallaCompletaCaja();
   });
 
   $(document).on('click', '#bDejarCaja', function () {
@@ -3261,7 +3282,7 @@ jQuery(document).ready(function ($) {
     })
       .done(function (res) {
         if ($.trim(res) == "Correcto") {
-          document.exitFullscreen();
+          salirPantallaCompletaCaja();
         } else {
           Swal.fire({
             icon: 'error',

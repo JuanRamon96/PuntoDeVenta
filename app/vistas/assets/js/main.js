@@ -332,12 +332,22 @@ jQuery(document).ready(function ($) {
       return;
     }
 
-    // requestPort() debe llamarse directo en el click (sin await/ajax/setTimeout antes)
+    // requestPort() debe llamarse directo en el click (sin await/ajax/setTimeout antes).
+    // La bandera solo vale mientras el selector esta abierto; se limpia siempre al cerrarlo.
     window.conectandoBascula = true;
-    navigator.serial.requestPort()
+    let promesaPuerto;
+    try {
+      promesaPuerto = navigator.serial.requestPort();
+    } catch (err) {
+      promesaPuerto = Promise.reject(err);
+    }
+    promesaPuerto
+      .finally(() => {
+        // Pequeno margen para que llegue el evento fullscreenchange del selector
+        setTimeout(() => { window.conectandoBascula = false; }, 300);
+      })
       .then(puerto => abrirPuertoBascula(puerto))
       .then(() => {
-        window.conectandoBascula = false;
         Swal.fire({
           icon: 'success',
           title: 'La bascula se conecto correctamente'
@@ -348,7 +358,6 @@ jQuery(document).ready(function ($) {
         });
       })
       .catch(err => {
-        window.conectandoBascula = false;
         let texto = 'Error al conectar con la bascula: ' + err;
 
         if (err && err.name === 'NotFoundError') {
