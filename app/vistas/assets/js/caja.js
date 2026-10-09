@@ -491,21 +491,21 @@ function elementoFullscreenCaja() {
     || null;
 }
 
-// Entra a pantalla completa solo si no lo esta ya (evita llamadas dobles) y sin errores sin capturar.
-// Debe llamarse directo desde un click del usuario.
+// Igual que antes: se pide pantalla completa al abrir la caja. Si el navegador la niega
+// (por ejemplo despues del selector de puertos de la bascula), se reintenta en el siguiente click/tecla.
 function entrarPantallaCompletaCaja() {
   if (elementoFullscreenCaja() || !document.documentElement.requestFullscreen) {
     return;
   }
   document.documentElement.requestFullscreen().catch(function (err) {
-    console.log('No se pudo entrar a pantalla completa: ', err);
+    console.log('No se pudo entrar a pantalla completa, se reintenta al siguiente click: ', err);
+    $(document).off('.pantallaCaja').one('pointerdown.pantallaCaja keydown.pantallaCaja', function () {
+      $(document).off('.pantallaCaja');
+      if ($('#modalCaja').is(':visible') && !elementoFullscreenCaja()) {
+        document.documentElement.requestFullscreen().catch(function () {});
+      }
+    });
   });
-}
-
-function salirPantallaCompletaCaja() {
-  if (elementoFullscreenCaja() && document.exitFullscreen) {
-    document.exitFullscreen().catch(function () {});
-  }
 }
 
 // Carga el módulo WASM completo antes de empezar a escanear (evita perder los primeros
@@ -1207,9 +1207,6 @@ $(document).on('keydown', function (evt) {
 jQuery(document).ready(function ($) {
 
   document.getElementById("bAbrirCaja").addEventListener("click", function () {
-    // Pantalla completa dentro del click (gesto del usuario), antes del ajax
-    window.conectandoBascula = false;
-    entrarPantallaCompletaCaja();
     var data = "metodo=detalles&accion=caja&tipo=consultarCaja";
 
     $.ajax({
@@ -1223,7 +1220,6 @@ jQuery(document).ready(function ($) {
       .done(function (res) {
         //console.log(res);
         if ($.trim(res) === "No") {
-          salirPantallaCompletaCaja();
           $('#bMenuCajas').trigger('click');
         } else {
           const resJson = JSON.parse($.trim(res));
@@ -1309,7 +1305,7 @@ jQuery(document).ready(function ($) {
   $(document).on('click', '#bCerrarVenCaja', function () {
     detenerEscanerCaja();
     $("#modalCaja").modal('hide');
-    salirPantallaCompletaCaja();
+    document.exitFullscreen();
   });
 
   $(document).on('click', '#bEscanerCamaraCaja', function (event) {
@@ -3260,12 +3256,12 @@ jQuery(document).ready(function ($) {
 
   $(document).on('click', '#bHacerCorte', function () {
     cerrarCaja(false);
-    salirPantallaCompletaCaja();
+    document.exitFullscreen();
   });
 
   $(document).on('click', '#bHacerCorteImprimir', function () {
     cerrarCaja(true);
-    salirPantallaCompletaCaja();
+    document.exitFullscreen();
   });
 
   $(document).on('click', '#bDejarCaja', function () {
@@ -3282,7 +3278,7 @@ jQuery(document).ready(function ($) {
     })
       .done(function (res) {
         if ($.trim(res) == "Correcto") {
-          salirPantallaCompletaCaja();
+          document.exitFullscreen();
         } else {
           Swal.fire({
             icon: 'error',
