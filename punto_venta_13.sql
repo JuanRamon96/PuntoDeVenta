@@ -283,6 +283,20 @@ CREATE TABLE `detalles_orden` (
 -- --------------------------------------------------------
 
 --
+-- Estructura de tabla para la tabla `detalles_orden_lotes`
+--
+
+CREATE TABLE `detalles_orden_lotes` (
+  `ID_Detalle_Orden_Lote` int NOT NULL,
+  `FK_Detalle_Orden` int NOT NULL,
+  `Nombre_Lote` varchar(100) NOT NULL,
+  `Fecha_Caducidad` date NOT NULL,
+  `Cantidad` double NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+
+-- --------------------------------------------------------
+
+--
 -- Estructura de tabla para la tabla `detalles_ventas`
 --
 
@@ -325,6 +339,19 @@ CREATE TRIGGER `rebajaInven` AFTER INSERT ON `detalles_ventas` FOR EACH ROW BEGI
 		END
 $$
 DELIMITER ;
+
+-- --------------------------------------------------------
+
+--
+-- Estructura de tabla para la tabla `detalles_ventas_lotes`
+--
+
+CREATE TABLE `detalles_ventas_lotes` (
+  `ID_Detalle_Venta_Lote` int NOT NULL,
+  `FK_Detalle_Venta` int NOT NULL,
+  `FK_Lote` int NOT NULL,
+  `Cantidad` double NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
 -- --------------------------------------------------------
 
@@ -372,6 +399,19 @@ CREATE TRIGGER `actualizar_inventario` AFTER INSERT ON `detalle_compras` FOR EAC
 		END
 $$
 DELIMITER ;
+
+-- --------------------------------------------------------
+
+--
+-- Estructura de tabla para la tabla `detalle_compras_lotes`
+--
+
+CREATE TABLE `detalle_compras_lotes` (
+  `ID_Detalle_Compra_Lote` int NOT NULL,
+  `FK_Detalle_Compra` int NOT NULL,
+  `FK_Lote` int NOT NULL,
+  `Cantidad` double NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
 -- --------------------------------------------------------
 
@@ -663,6 +703,21 @@ CREATE TABLE `inventario` (
   `ID_Inventario` int NOT NULL,
   `FK_Producto` int NOT NULL,
   `Cantidad` double NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+
+-- --------------------------------------------------------
+
+--
+-- Estructura de tabla para la tabla `inventario_lotes`
+--
+
+CREATE TABLE `inventario_lotes` (
+  `ID_Lote` int NOT NULL,
+  `FK_Inventario` int NOT NULL,
+  `Nombre_Lote` varchar(100) NOT NULL,
+  `Fecha_Caducidad` date NOT NULL,
+  `Cantidad` double NOT NULL,
+  `Fecha_Registro` datetime NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
 -- --------------------------------------------------------
@@ -1109,6 +1164,14 @@ ALTER TABLE `detalles_orden`
   ADD KEY `FK_Orden` (`FK_Orden`);
 
 --
+-- Indices de la tabla `detalles_orden_lotes`
+--
+ALTER TABLE `detalles_orden_lotes`
+  ADD PRIMARY KEY (`ID_Detalle_Orden_Lote`),
+  ADD KEY `FK_Detalle_Orden` (`FK_Detalle_Orden`),
+  ADD KEY `Fecha_Caducidad` (`Fecha_Caducidad`);
+
+--
 -- Indices de la tabla `detalles_ventas`
 --
 ALTER TABLE `detalles_ventas`
@@ -1116,11 +1179,27 @@ ALTER TABLE `detalles_ventas`
   ADD KEY `FK_Venta` (`FK_Venta`);
 
 --
+-- Indices de la tabla `detalles_ventas_lotes`
+--
+ALTER TABLE `detalles_ventas_lotes`
+  ADD PRIMARY KEY (`ID_Detalle_Venta_Lote`),
+  ADD KEY `FK_Detalle_Venta` (`FK_Detalle_Venta`),
+  ADD KEY `FK_Lote` (`FK_Lote`);
+
+--
 -- Indices de la tabla `detalle_compras`
 --
 ALTER TABLE `detalle_compras`
   ADD PRIMARY KEY (`ID_Detalle_Compra`),
   ADD KEY `FK_Compra` (`FK_Compra`);
+
+--
+-- Indices de la tabla `detalle_compras_lotes`
+--
+ALTER TABLE `detalle_compras_lotes`
+  ADD PRIMARY KEY (`ID_Detalle_Compra_Lote`),
+  ADD KEY `FK_Detalle_Compra` (`FK_Detalle_Compra`),
+  ADD KEY `FK_Lote` (`FK_Lote`);
 
 --
 -- Indices de la tabla `devoluciones`
@@ -1204,6 +1283,14 @@ ALTER TABLE `impuestos_ventas`
 ALTER TABLE `inventario`
   ADD PRIMARY KEY (`ID_Inventario`),
   ADD KEY `FK_Producto` (`FK_Producto`);
+
+--
+-- Indices de la tabla `inventario_lotes`
+--
+ALTER TABLE `inventario_lotes`
+  ADD PRIMARY KEY (`ID_Lote`),
+  ADD KEY `FK_Inventario` (`FK_Inventario`),
+  ADD KEY `Fecha_Caducidad` (`Fecha_Caducidad`);
 
 --
 -- Indices de la tabla `merma`
@@ -1350,16 +1437,34 @@ ALTER TABLE `detalles_orden`
   MODIFY `ID_Detalle_Orden` int NOT NULL AUTO_INCREMENT;
 
 --
+-- AUTO_INCREMENT de la tabla `detalles_orden_lotes`
+--
+ALTER TABLE `detalles_orden_lotes`
+  MODIFY `ID_Detalle_Orden_Lote` int NOT NULL AUTO_INCREMENT;
+
+--
 -- AUTO_INCREMENT de la tabla `detalles_ventas`
 --
 ALTER TABLE `detalles_ventas`
   MODIFY `ID_Detalle_Venta` int NOT NULL AUTO_INCREMENT;
 
 --
+-- AUTO_INCREMENT de la tabla `detalles_ventas_lotes`
+--
+ALTER TABLE `detalles_ventas_lotes`
+  MODIFY `ID_Detalle_Venta_Lote` int NOT NULL AUTO_INCREMENT;
+
+--
 -- AUTO_INCREMENT de la tabla `detalle_compras`
 --
 ALTER TABLE `detalle_compras`
   MODIFY `ID_Detalle_Compra` int NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT de la tabla `detalle_compras_lotes`
+--
+ALTER TABLE `detalle_compras_lotes`
+  MODIFY `ID_Detalle_Compra_Lote` int NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT de la tabla `devoluciones`
@@ -1432,6 +1537,12 @@ ALTER TABLE `impuestos_ventas`
 --
 ALTER TABLE `inventario`
   MODIFY `ID_Inventario` int NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT de la tabla `inventario_lotes`
+--
+ALTER TABLE `inventario_lotes`
+  MODIFY `ID_Lote` int NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT de la tabla `merma`
@@ -1542,16 +1653,36 @@ ALTER TABLE `detalles_orden`
   ADD CONSTRAINT `detalles_orden_ibfk_1` FOREIGN KEY (`FK_Orden`) REFERENCES `ordenes_compra` (`ID_Orden_Compra`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --
+-- Filtros para la tabla `detalles_orden_lotes`
+--
+ALTER TABLE `detalles_orden_lotes`
+  ADD CONSTRAINT `detalles_orden_lotes_ibfk_1` FOREIGN KEY (`FK_Detalle_Orden`) REFERENCES `detalles_orden` (`ID_Detalle_Orden`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+--
 -- Filtros para la tabla `detalles_ventas`
 --
 ALTER TABLE `detalles_ventas`
   ADD CONSTRAINT `detalles_ventas_ibfk_1` FOREIGN KEY (`FK_Venta`) REFERENCES `ventas` (`ID_Venta`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --
+-- Filtros para la tabla `detalles_ventas_lotes`
+--
+ALTER TABLE `detalles_ventas_lotes`
+  ADD CONSTRAINT `detalles_ventas_lotes_ibfk_1` FOREIGN KEY (`FK_Detalle_Venta`) REFERENCES `detalles_ventas` (`ID_Detalle_Venta`) ON DELETE CASCADE ON UPDATE CASCADE,
+  ADD CONSTRAINT `detalles_ventas_lotes_ibfk_2` FOREIGN KEY (`FK_Lote`) REFERENCES `inventario_lotes` (`ID_Lote`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+--
 -- Filtros para la tabla `detalle_compras`
 --
 ALTER TABLE `detalle_compras`
   ADD CONSTRAINT `detalle_compras_ibfk_1` FOREIGN KEY (`FK_Compra`) REFERENCES `compras` (`ID_Compra`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+--
+-- Filtros para la tabla `detalle_compras_lotes`
+--
+ALTER TABLE `detalle_compras_lotes`
+  ADD CONSTRAINT `detalle_compras_lotes_ibfk_1` FOREIGN KEY (`FK_Detalle_Compra`) REFERENCES `detalle_compras` (`ID_Detalle_Compra`) ON DELETE CASCADE ON UPDATE CASCADE,
+  ADD CONSTRAINT `detalle_compras_lotes_ibfk_2` FOREIGN KEY (`FK_Lote`) REFERENCES `inventario_lotes` (`ID_Lote`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --
 -- Filtros para la tabla `devoluciones`
@@ -1608,6 +1739,12 @@ ALTER TABLE `impuestos_ventas`
 --
 ALTER TABLE `inventario`
   ADD CONSTRAINT `inventario_ibfk_2` FOREIGN KEY (`FK_Producto`) REFERENCES `productos` (`ID_Producto`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+--
+-- Filtros para la tabla `inventario_lotes`
+--
+ALTER TABLE `inventario_lotes`
+  ADD CONSTRAINT `inventario_lotes_ibfk_1` FOREIGN KEY (`FK_Inventario`) REFERENCES `inventario` (`ID_Inventario`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --
 -- Filtros para la tabla `merma`

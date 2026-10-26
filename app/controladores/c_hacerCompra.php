@@ -240,15 +240,49 @@ class hacerCompra {
 			$codigo =  $omodelo->link->real_escape_string($codigo);
 			$arreglo = null;	
 
-			$query = "SELECT ID_Producto, Codigo, Descripcion, Costo FROM productos WHERE Codigo = '$codigo'";
+			$loteIdBuscado = 0;
+			$codigoBase = $codigo;
+			if (strpos($codigo, '_') !== false) {
+				$partes = explode('_', $codigo, 2);
+				$codigoBase = trim($partes[0]);
+				$loteIdBuscado = intval(trim($partes[1]));
+			} else if (strpos($codigo, '-') !== false) {
+				$partes = explode('-', $codigo, 2);
+				$codigoBase = trim($partes[0]);
+				$loteIdBuscado = intval(trim($partes[1]));
+			}
+
+			$query = "SELECT ID_Producto, Codigo, Descripcion, Costo FROM productos WHERE Codigo = '$codigoBase'";
 			$row = $omodelo->_consultar($query);
 			$numerofilas = $omodelo->numerofilas;
+
+			if ($numerofilas == 0 && $codigoBase !== $codigo) {
+				$query = "SELECT ID_Producto, Codigo, Descripcion, Costo FROM productos WHERE Codigo = '$codigo'";
+				$row = $omodelo->_consultar($query);
+				$numerofilas = $omodelo->numerofilas;
+				$loteIdBuscado = 0;
+			}
 
 			if($row == 'si'){
 				echo "Error: ".mysqli_error($omodelo->link);
 			}else{
 				if($numerofilas > 0){
 					$arreglo = $row[0];
+					$arreglo['LoteEscaneado'] = null;
+					if ($loteIdBuscado > 0) {
+						$qLote = "SELECT l.ID_Lote, l.Nombre_Lote, DATE_FORMAT(l.Fecha_Caducidad, '%Y-%m-%d') AS Fecha_Caducidad 
+						          FROM inventario_lotes l 
+						          INNER JOIN inventario i ON l.FK_Inventario = i.ID_Inventario 
+						          WHERE l.ID_Lote = '$loteIdBuscado' AND i.FK_Producto = '".$row[0]['ID_Producto']."'";
+						$rLote = $omodelo->_consultar($qLote);
+						if ($rLote != 'si' && $omodelo->numerofilas > 0) {
+							$arreglo['LoteEscaneado'] = array(
+								'idLote' => intval($rLote[0]['ID_Lote']),
+								'nombre' => $rLote[0]['Nombre_Lote'],
+								'caducidad' => $rLote[0]['Fecha_Caducidad']
+							);
+						}
+					}
 				}
 			}
 
@@ -317,6 +351,7 @@ class hacerCompra {
 
 	public function _insertar(){
 		$omodelo = new m_modelo();
+		$this->_verificarTablasLotes($omodelo);
 		extract($_POST);
 		$fecha = date('Y-m-d H:i:s'); 
 
@@ -368,6 +403,34 @@ class hacerCompra {
 				
 				if ($error3 == "si") {
 					echo "Error detalles compra: ".mysqli_error($omodelo->link);
+				} else {
+					$idDetalleCompra = $omodelo->link->insert_id;
+					if (!empty($producto['lotes']) && is_array($producto['lotes'])) {
+						$qInv = "SELECT ID_Inventario FROM inventario WHERE FK_Producto = '$producto[id]'";
+						$rInv = $omodelo->_consultar($qInv);
+						if ($rInv != 'si' && $omodelo->numerofilas > 0) {
+							$idInventario = $rInv[0]['ID_Inventario'];
+							foreach ($producto['lotes'] as $loteItem) {
+								$nomLote = $omodelo->link->real_escape_string(trim($loteItem['nombre']));
+								$cadLote = $omodelo->link->real_escape_string(trim($loteItem['caducidad']));
+								$cantLote = floatval($loteItem['cantidad']);
+
+								if ($cantLote > 0 && !empty($nomLote)) {
+									$qBusca = "SELECT ID_Lote FROM inventario_lotes WHERE FK_Inventario = '$idInventario' AND Nombre_Lote = '$nomLote' AND Fecha_Caducidad = '$cadLote'";
+									$rBusca = $omodelo->_consultar($qBusca);
+									if ($rBusca != 'si' && $omodelo->numerofilas > 0) {
+										$idLoteActual = $rBusca[0]['ID_Lote'];
+										$omodelo->_insertar("UPDATE inventario_lotes SET Cantidad = Cantidad + $cantLote WHERE ID_Lote = '$idLoteActual'");
+									} else {
+										$omodelo->_insertar("INSERT INTO inventario_lotes SET FK_Inventario = '$idInventario', Nombre_Lote = '$nomLote', Fecha_Caducidad = '$cadLote', Cantidad = '$cantLote', Fecha_Registro = NOW()");
+										$idLoteActual = $omodelo->link->insert_id;
+									}
+
+									$omodelo->_insertar("INSERT INTO detalle_compras_lotes SET FK_Detalle_Compra = '$idDetalleCompra', FK_Lote = '$idLoteActual', Cantidad = '$cantLote'");
+								}
+							}
+						}
+					}
 				}
 			}
 
@@ -428,6 +491,7 @@ class hacerCompra {
 
 	public function _detalles(){
 		$omodelo = new m_modelo();
+		$this->_verificarTablasLotes($omodelo);
 		extract($_POST);
 		$tipo =  $omodelo->link->real_escape_string($tipo);
 
@@ -444,11 +508,29 @@ class hacerCompra {
 			}else{
 				if($numerofilas > 0){
 					for ($i=0; $i < $numerofilas; $i++) { 
+						$lotesOrdenHtml = '';
+						$qLotesOrd = "SELECT Nombre_Lote, Cantidad, DATE_FORMAT(Fecha_Caducidad, '%d/%m/%Y') AS Caducidad 
+						              FROM detalles_orden_lotes 
+						              WHERE FK_Detalle_Orden = '".$row[$i]['ID_Detalle_Orden']."' 
+						              ORDER BY Fecha_Caducidad ASC, ID_Detalle_Orden_Lote ASC";
+						$rLotesOrd = $omodelo->_consultar($qLotesOrd);
+						if ($rLotesOrd != 'si' && $omodelo->numerofilas > 0) {
+							$lotesOrdenHtml .= '<div class="mt-1 d-flex flex-column align-items-center gap-1">';
+							for ($lo = 0; $lo < $omodelo->numerofilas; $lo++) {
+								$cadOrd = (!empty($rLotesOrd[$lo]['Caducidad']) && $rLotesOrd[$lo]['Caducidad'] != '00/00/0000') ? ' <span class="text-muted" style="font-size: 10px;">(' . $rLotesOrd[$lo]['Caducidad'] . ')</span>' : '';
+								$lotesOrdenHtml .= '<div class="badge bg-light text-dark border py-1 px-2 text-start" style="font-size: 11px; font-weight: normal; max-width: 100%; white-space: nowrap;">'
+									. '<i class="fas fa-boxes text-muted me-1"></i><b>' . htmlspecialchars($rLotesOrd[$lo]['Nombre_Lote'], ENT_QUOTES) . ':</b> '
+									. '<span class="cantidad fw-bold">' . $rLotesOrd[$lo]['Cantidad'] . '</span>' . $cadOrd
+									. '</div>';
+							}
+							$lotesOrdenHtml .= '</div>';
+						}
+
 						$tabla .= '<tr>
 							<td>'.$row[$i]['Codigo'].'</td>
 							<td>'.$row[$i]['Descripcion'].'</td>
 							<td><span class="dinero">'.$row[$i]['Costo'].'</span></td>
-							<td><span class="cantidad">'.$row[$i]['Cantidad'].'</span></td>
+							<td><span class="cantidad">'.$row[$i]['Cantidad'].'</span>' . $lotesOrdenHtml . '</td>
 							<td><span class="dinero">'.$row[$i]['Subtotal'].'</span></td>
 						</tr>';
 					}
@@ -478,7 +560,32 @@ class hacerCompra {
 					}else{
 						if($numerofilas1 > 0){
 							for ($i=0; $i < $numerofilas1; $i++) { 
-								$productos[$i] = array('ID_Detalle_Orden' => $row1[$i]['ID_Detalle_Orden'], 'FK_Producto' => $row1[$i]['FK_Producto'], 'Codigo' => $row1[$i]['Codigo'], 'Descripcion' => $row1[$i]['Descripcion'], 'Costo' => $row1[$i]['Costo'], 'Cantidad' => $row1[$i]['Cantidad'], 'Subtotal' => $row1[$i]['Subtotal']);
+								$lotesOrd = array();
+								$qLotesOrd = "SELECT Nombre_Lote, Cantidad, DATE_FORMAT(Fecha_Caducidad, '%Y-%m-%d') AS Caducidad 
+								              FROM detalles_orden_lotes 
+								              WHERE FK_Detalle_Orden = '".$row1[$i]['ID_Detalle_Orden']."' 
+								              ORDER BY Fecha_Caducidad ASC, ID_Detalle_Orden_Lote ASC";
+								$rLotesOrd = $omodelo->_consultar($qLotesOrd);
+								if ($rLotesOrd != 'si' && $omodelo->numerofilas > 0) {
+									for ($ko = 0; $ko < $omodelo->numerofilas; $ko++) {
+										$lotesOrd[] = array(
+											'nombre' => $rLotesOrd[$ko]['Nombre_Lote'],
+											'caducidad' => $rLotesOrd[$ko]['Caducidad'],
+											'cantidad' => floatval($rLotesOrd[$ko]['Cantidad'])
+										);
+									}
+								}
+
+								$productos[$i] = array(
+									'ID_Detalle_Orden' => $row1[$i]['ID_Detalle_Orden'], 
+									'FK_Producto' => $row1[$i]['FK_Producto'], 
+									'Codigo' => $row1[$i]['Codigo'], 
+									'Descripcion' => $row1[$i]['Descripcion'], 
+									'Costo' => $row1[$i]['Costo'], 
+									'Cantidad' => $row1[$i]['Cantidad'], 
+									'Subtotal' => $row1[$i]['Subtotal'],
+									'lotes' => $lotesOrd
+								);
 							}
 						}
 					}
@@ -507,6 +614,7 @@ class hacerCompra {
 
 	public function _modificar(){
 		$omodelo = new m_modelo();
+		$this->_verificarTablasLotes($omodelo);
 		extract($_POST);
 		$fecha = date('Y-m-d H:i:s'); 
 		$tipo =  $omodelo->link->real_escape_string($tipo);
@@ -546,6 +654,18 @@ class hacerCompra {
 
 					if ($error3 == "si") {
 						echo "Error detalles: ".mysqli_error($omodelo->link);
+					} else {
+						$idDetalleOrden = $omodelo->link->insert_id;
+						if (!empty($producto['lotes']) && is_array($producto['lotes'])) {
+							foreach ($producto['lotes'] as $loteItem) {
+								$nomLote = $omodelo->link->real_escape_string(trim($loteItem['nombre']));
+								$cadLote = $omodelo->link->real_escape_string(trim($loteItem['caducidad']));
+								$cantLote = floatval($loteItem['cantidad']);
+								if ($cantLote > 0 && !empty($nomLote)) {
+									$omodelo->_insertar("INSERT INTO detalles_orden_lotes SET FK_Detalle_Orden = '$idDetalleOrden', Nombre_Lote = '$nomLote', Fecha_Caducidad = '$cadLote', Cantidad = '$cantLote'");
+								}
+							}
+						}
 					}
 				}
 
@@ -571,6 +691,7 @@ class hacerCompra {
 			if ($error == "si") {
 				echo "Error 1: ".mysqli_error($omodelo->link);
 			}else{
+				$omodelo->_insertar("DELETE dol FROM detalles_orden_lotes dol INNER JOIN detalles_orden do ON dol.FK_Detalle_Orden = do.ID_Detalle_Orden WHERE do.FK_Orden = '$id'");
 				$query1 = "DELETE FROM detalles_orden WHERE FK_Orden = '$id'";
 				$error1 = $omodelo->_insertar($query1);
 
@@ -591,6 +712,18 @@ class hacerCompra {
 
 						if ($error3 == "si") {
 							echo "Error detalles: ".mysqli_error($omodelo->link);
+						} else {
+							$idDetalleOrden = $omodelo->link->insert_id;
+							if (!empty($producto['lotes']) && is_array($producto['lotes'])) {
+								foreach ($producto['lotes'] as $loteItem) {
+									$nomLote = $omodelo->link->real_escape_string(trim($loteItem['nombre']));
+									$cadLote = $omodelo->link->real_escape_string(trim($loteItem['caducidad']));
+									$cantLote = floatval($loteItem['cantidad']);
+									if ($cantLote > 0 && !empty($nomLote)) {
+										$omodelo->_insertar("INSERT INTO detalles_orden_lotes SET FK_Detalle_Orden = '$idDetalleOrden', Nombre_Lote = '$nomLote', Fecha_Caducidad = '$cadLote', Cantidad = '$cantLote'");
+									}
+								}
+							}
 						}
 					}
 				}
@@ -604,12 +737,13 @@ class hacerCompra {
 
 	public function _eliminar(){
 		$omodelo = new m_modelo();
+		$this->_verificarTablasLotes($omodelo);
 		extract($_POST);
 		$tipo =  $omodelo->link->real_escape_string($tipo);
 
 		if($tipo == 'ordenCompra'){
 			$id = $omodelo->link->real_escape_string($id);
-			
+			$omodelo->_insertar("DELETE dol FROM detalles_orden_lotes dol INNER JOIN detalles_orden do ON dol.FK_Detalle_Orden = do.ID_Detalle_Orden WHERE do.FK_Orden = '$id'");
 			$query = "DELETE FROM ordenes_compra WHERE ID_Orden_Compra = '$id'";
 			$error = $omodelo->_insertar($query);
 
@@ -621,6 +755,55 @@ class hacerCompra {
 				$omodelo->movimiento($query, $_SESSION['user_punto_venta']['ID_Usuario']);
 			}
 		}
+	}
+
+	private function _verificarTablasLotes($omodelo) {
+		$q1 = "CREATE TABLE IF NOT EXISTS `inventario_lotes` (
+			`ID_Lote` int(11) NOT NULL AUTO_INCREMENT,
+			`FK_Inventario` int(11) NOT NULL,
+			`Nombre_Lote` varchar(100) NOT NULL,
+			`Fecha_Caducidad` date NOT NULL,
+			`Cantidad` double NOT NULL,
+			`Fecha_Registro` datetime NOT NULL,
+			PRIMARY KEY (`ID_Lote`),
+			KEY `FK_Inventario` (`FK_Inventario`),
+			KEY `Fecha_Caducidad` (`Fecha_Caducidad`)
+		) ENGINE=InnoDB DEFAULT CHARSET=latin1;";
+		$omodelo->_insertar($q1);
+
+		$q2 = "CREATE TABLE IF NOT EXISTS `detalles_ventas_lotes` (
+			`ID_Detalle_Venta_Lote` int(11) NOT NULL AUTO_INCREMENT,
+			`FK_Detalle_Venta` int(11) NOT NULL,
+			`FK_Lote` int(11) NOT NULL,
+			`Cantidad` double NOT NULL,
+			PRIMARY KEY (`ID_Detalle_Venta_Lote`),
+			KEY `FK_Detalle_Venta` (`FK_Detalle_Venta`),
+			KEY `FK_Lote` (`FK_Lote`)
+		) ENGINE=InnoDB DEFAULT CHARSET=latin1;";
+		$omodelo->_insertar($q2);
+
+		$q3 = "CREATE TABLE IF NOT EXISTS `detalle_compras_lotes` (
+			`ID_Detalle_Compra_Lote` int(11) NOT NULL AUTO_INCREMENT,
+			`FK_Detalle_Compra` int(11) NOT NULL,
+			`FK_Lote` int(11) NOT NULL,
+			`Cantidad` double NOT NULL,
+			PRIMARY KEY (`ID_Detalle_Compra_Lote`),
+			KEY `FK_Detalle_Compra` (`FK_Detalle_Compra`),
+			KEY `FK_Lote` (`FK_Lote`)
+		) ENGINE=InnoDB DEFAULT CHARSET=latin1;";
+		$omodelo->_insertar($q3);
+
+		$q4 = "CREATE TABLE IF NOT EXISTS `detalles_orden_lotes` (
+			`ID_Detalle_Orden_Lote` int(11) NOT NULL AUTO_INCREMENT,
+			`FK_Detalle_Orden` int(11) NOT NULL,
+			`Nombre_Lote` varchar(100) NOT NULL,
+			`Fecha_Caducidad` date NOT NULL,
+			`Cantidad` double NOT NULL,
+			PRIMARY KEY (`ID_Detalle_Orden_Lote`),
+			KEY `FK_Detalle_Orden` (`FK_Detalle_Orden`),
+			KEY `Fecha_Caducidad` (`Fecha_Caducidad`)
+		) ENGINE=InnoDB DEFAULT CHARSET=latin1;";
+		$omodelo->_insertar($q4);
 	}
 }
 ?>

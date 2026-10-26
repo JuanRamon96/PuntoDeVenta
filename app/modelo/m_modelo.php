@@ -21,12 +21,17 @@ class m_modelo extends conexion
 
 	public function _insertar($query)
 	{
-		$result = $this->link->query($query);
-		$this->numerofilas = $this->link->affected_rows;
-		if (!$result) {
+		try {
+			$result = $this->link->query($query);
+			$this->numerofilas = $this->link->affected_rows;
+			if (!$result) {
+				$error = 'si';
+			} else {
+				$error = 'no';
+			}
+		} catch (Throwable $e) {
 			$error = 'si';
-		} else {
-			$error = 'no';
+			$this->numerofilas = 0;
 		}
 
 		return $error;
@@ -34,14 +39,22 @@ class m_modelo extends conexion
 
 	public function _consultar($query)
 	{
-		$result = $this->link->query($query);
-		$this->numerofilas = $result->num_rows;
-		if (!$result) {
+		$resultado = array();
+		try {
+			$result = $this->link->query($query);
+			if (!$result) {
+				$this->error = 'si';
+				$this->numerofilas = 0;
+				echo "Se produjo un error en el modelo: " . mysqli_error($this->link) . " SQL: " . $query;
+			} else {
+				$this->numerofilas = $result->num_rows;
+				$this->error = 'no';
+				while ($resultado[] = $result->fetch_array());
+			}
+		} catch (Throwable $e) {
 			$this->error = 'si';
-			echo "Se produjo un error en el modelo: " . mysqli_error($this->link) . " SQL: " . $query;
-		} else {
-			$this->error = 'no';
-			while ($resultado[] = $result->fetch_array());
+			$this->numerofilas = 0;
+			echo "Se produjo un error en el modelo: " . $e->getMessage() . " SQL: " . $query;
 		}
 
 		return $resultado;
@@ -412,6 +425,15 @@ class m_modelo extends conexion
 			) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 		");
 
+		$this->link->query("CREATE TABLE `detalles_orden_lotes` (
+			`ID_Detalle_Orden_Lote` int(11) NOT NULL,
+			`FK_Detalle_Orden` int(11) NOT NULL,
+			`Nombre_Lote` varchar(100) NOT NULL,
+			`Fecha_Caducidad` date NOT NULL,
+			`Cantidad` double NOT NULL
+			) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+		");
+
 		$this->link->query("CREATE TABLE `detalles_ventas` (
 			`ID_Detalle_Venta` int(11) NOT NULL,
 			`FK_Venta` int(11) NOT NULL,
@@ -444,6 +466,14 @@ class m_modelo extends conexion
 					
 			UPDATE detalles_inventario SET Cantidad = Cantidad - New.Cantidad WHERE FK_Inventario = (SELECT ID_Inventario FROM inventario WHERE FK_Producto = New.FK_Producto) AND FK_Sucursal = (SELECT FK_Sucursal FROM cajas WHERE ID_Caja = (SELECT FK_Caja FROM detalles_caja WHERE ID_Detalle_Caja = (SELECT FK_Detalles_Caja FROM ventas WHERE ID_Venta = New.FK_Venta)));
 		END;");
+
+		$this->link->query("CREATE TABLE `detalles_ventas_lotes` (
+			`ID_Detalle_Venta_Lote` int(11) NOT NULL,
+			`FK_Detalle_Venta` int(11) NOT NULL,
+			`FK_Lote` int(11) NOT NULL,
+			`Cantidad` double NOT NULL
+			) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+		");
 
 		$this->link->query("CREATE TABLE `detalle_compras` (
 			`ID_Detalle_Compra` int(11) NOT NULL,
@@ -480,6 +510,14 @@ class m_modelo extends conexion
 					
 			END IF;
 		END;");
+
+		$this->link->query("CREATE TABLE `detalle_compras_lotes` (
+			`ID_Detalle_Compra_Lote` int(11) NOT NULL,
+			`FK_Detalle_Compra` int(11) NOT NULL,
+			`FK_Lote` int(11) NOT NULL,
+			`Cantidad` double NOT NULL
+			) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+		");
 
 		$this->link->query("CREATE TABLE `devoluciones` (
 			`ID_Devolucion` int(11) NOT NULL,
@@ -710,6 +748,16 @@ class m_modelo extends conexion
 			) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 		");
 
+		$this->link->query("CREATE TABLE `inventario_lotes` (
+			`ID_Lote` int(11) NOT NULL,
+			`FK_Inventario` int(11) NOT NULL,
+			`Nombre_Lote` varchar(100) NOT NULL,
+			`Fecha_Caducidad` date NOT NULL,
+			`Cantidad` double NOT NULL,
+			`Fecha_Registro` datetime NOT NULL
+			) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+		");
+
 		$this->link->query("CREATE TABLE `merma` (
 			`ID_Merma` int(11) NOT NULL,
 			`FK_Producto` int(11) NOT NULL,
@@ -827,6 +875,23 @@ class m_modelo extends conexion
 		$this->link->query("CREATE TRIGGER `agregar_inventario` AFTER INSERT ON `productos` FOR EACH ROW BEGIN
 			INSERT INTO inventario SET FK_Producto = New.ID_Producto, Cantidad = 0;
 		END;");
+
+		$this->link->query("CREATE TABLE `promociones` (
+			`ID_Promocion` int(11) NOT NULL,
+			`Nombre` tinytext NOT NULL,
+			`Tipo` varchar(20) NOT NULL COMMENT 'Producto o Clasificacion',
+			`FK_Producto` int(11) NOT NULL,
+			`FK_Clasificacion` int(11) NOT NULL,
+			`Cantidad` double NOT NULL,
+			`Modo_Cantidad` varchar(20) NOT NULL COMMENT 'Minima o Paquete',
+			`Tipo_Beneficio` varchar(20) NOT NULL COMMENT 'Precio_Fijo o Descuento',
+			`Precio_Fijo` double NOT NULL,
+			`Tipo_Descuento` varchar(20) NOT NULL COMMENT 'Porcentaje o Monto',
+			`Descuento` double NOT NULL,
+			`Estado` tinyint(1) NOT NULL COMMENT 'Deshabilitada(0) Habilitada(1)',
+			`Fecha_Registro` datetime NOT NULL
+			) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+		");
 
 		$this->link->query("CREATE TABLE `proveedores` (
 			`ID_Proveedor` int(11) NOT NULL,
@@ -1019,14 +1084,32 @@ class m_modelo extends conexion
 			ADD KEY `FK_Orden` (`FK_Orden`);
 		");
 
+		$this->link->query("ALTER TABLE `detalles_orden_lotes`
+			ADD PRIMARY KEY (`ID_Detalle_Orden_Lote`),
+			ADD KEY `FK_Detalle_Orden` (`FK_Detalle_Orden`),
+			ADD KEY `Fecha_Caducidad` (`Fecha_Caducidad`);
+		");
+
 		$this->link->query("ALTER TABLE `detalles_ventas`
 			ADD PRIMARY KEY (`ID_Detalle_Venta`),
 			ADD KEY `FK_Venta` (`FK_Venta`);
 		");
 
+		$this->link->query("ALTER TABLE `detalles_ventas_lotes`
+			ADD PRIMARY KEY (`ID_Detalle_Venta_Lote`),
+			ADD KEY `FK_Detalle_Venta` (`FK_Detalle_Venta`),
+			ADD KEY `FK_Lote` (`FK_Lote`);
+		");
+
 		$this->link->query("ALTER TABLE `detalle_compras`
 			ADD PRIMARY KEY (`ID_Detalle_Compra`),
 			ADD KEY `FK_Compra` (`FK_Compra`);
+		");
+
+		$this->link->query("ALTER TABLE `detalle_compras_lotes`
+			ADD PRIMARY KEY (`ID_Detalle_Compra_Lote`),
+			ADD KEY `FK_Detalle_Compra` (`FK_Detalle_Compra`),
+			ADD KEY `FK_Lote` (`FK_Lote`);
 		");
 
 		$this->link->query("ALTER TABLE `devoluciones`
@@ -1082,6 +1165,12 @@ class m_modelo extends conexion
 			ADD KEY `FK_Producto` (`FK_Producto`);
 		");
 
+		$this->link->query("ALTER TABLE `inventario_lotes`
+			ADD PRIMARY KEY (`ID_Lote`),
+			ADD KEY `FK_Inventario` (`FK_Inventario`),
+			ADD KEY `Fecha_Caducidad` (`Fecha_Caducidad`);
+		");
+
 		$this->link->query("ALTER TABLE `merma`
 			ADD PRIMARY KEY (`ID_Merma`),
 			ADD KEY `FK_Producto` (`FK_Producto`);
@@ -1103,6 +1192,12 @@ class m_modelo extends conexion
 		$this->link->query("ALTER TABLE `productos`
 			ADD PRIMARY KEY (`ID_Producto`),
 			ADD UNIQUE KEY `Codigo` (`Codigo`);
+		");
+
+		$this->link->query("ALTER TABLE `promociones`
+			ADD PRIMARY KEY (`ID_Promocion`),
+			ADD KEY `FK_Producto` (`FK_Producto`),
+			ADD KEY `FK_Clasificacion` (`FK_Clasificacion`);
 		");
 
 		$this->link->query("ALTER TABLE `proveedores` ADD PRIMARY KEY (`ID_Proveedor`);");
@@ -1148,9 +1243,15 @@ class m_modelo extends conexion
 
 		$this->link->query("ALTER TABLE `detalles_orden` MODIFY `ID_Detalle_Orden` int(11) NOT NULL AUTO_INCREMENT;");
 
+		$this->link->query("ALTER TABLE `detalles_orden_lotes` MODIFY `ID_Detalle_Orden_Lote` int(11) NOT NULL AUTO_INCREMENT;");
+
 		$this->link->query("ALTER TABLE `detalles_ventas` MODIFY `ID_Detalle_Venta` int(11) NOT NULL AUTO_INCREMENT;");
 
+		$this->link->query("ALTER TABLE `detalles_ventas_lotes` MODIFY `ID_Detalle_Venta_Lote` int(11) NOT NULL AUTO_INCREMENT;");
+
 		$this->link->query("ALTER TABLE `detalle_compras` MODIFY `ID_Detalle_Compra` int(11) NOT NULL AUTO_INCREMENT;");
+
+		$this->link->query("ALTER TABLE `detalle_compras_lotes` MODIFY `ID_Detalle_Compra_Lote` int(11) NOT NULL AUTO_INCREMENT;");
 
 		$this->link->query("ALTER TABLE `devoluciones` MODIFY `ID_Devolucion` int(11) NOT NULL AUTO_INCREMENT;");
 
@@ -1176,6 +1277,8 @@ class m_modelo extends conexion
 
 		$this->link->query("ALTER TABLE `inventario` MODIFY `ID_Inventario` int(11) NOT NULL AUTO_INCREMENT;");
 
+		$this->link->query("ALTER TABLE `inventario_lotes` MODIFY `ID_Lote` int(11) NOT NULL AUTO_INCREMENT;");
+
 		$this->link->query("ALTER TABLE `merma` MODIFY `ID_Merma` int(11) NOT NULL AUTO_INCREMENT;");
 
 		$this->link->query("ALTER TABLE `movimientos` MODIFY `ID_Movimiento` int(11) NOT NULL AUTO_INCREMENT;");
@@ -1185,6 +1288,8 @@ class m_modelo extends conexion
 		$this->link->query("ALTER TABLE `ordenes_compra` MODIFY `ID_Orden_Compra` int(11) NOT NULL AUTO_INCREMENT;");
 
 		$this->link->query("ALTER TABLE `productos` MODIFY `ID_Producto` int(11) NOT NULL AUTO_INCREMENT;");
+
+		$this->link->query("ALTER TABLE `promociones` MODIFY `ID_Promocion` int(11) NOT NULL AUTO_INCREMENT;");
 
 		$this->link->query("ALTER TABLE `proveedores` MODIFY `ID_Proveedor` int(11) NOT NULL AUTO_INCREMENT;");
 
@@ -1216,9 +1321,23 @@ class m_modelo extends conexion
 
 		$this->link->query("ALTER TABLE `detalles_orden` ADD CONSTRAINT `detalles_orden_ibfk_1` FOREIGN KEY (`FK_Orden`) REFERENCES `ordenes_compra` (`ID_Orden_Compra`) ON DELETE CASCADE ON UPDATE CASCADE;");
 
+		$this->link->query("ALTER TABLE `detalles_orden_lotes`
+			ADD CONSTRAINT `detalles_orden_lotes_ibfk_1` FOREIGN KEY (`FK_Detalle_Orden`) REFERENCES `detalles_orden` (`ID_Detalle_Orden`) ON DELETE CASCADE ON UPDATE CASCADE;
+		");
+
 		$this->link->query("ALTER TABLE `detalles_ventas` ADD CONSTRAINT `detalles_ventas_ibfk_1` FOREIGN KEY (`FK_Venta`) REFERENCES `ventas` (`ID_Venta`) ON DELETE CASCADE ON UPDATE CASCADE;");
 
+		$this->link->query("ALTER TABLE `detalles_ventas_lotes`
+			ADD CONSTRAINT `detalles_ventas_lotes_ibfk_1` FOREIGN KEY (`FK_Detalle_Venta`) REFERENCES `detalles_ventas` (`ID_Detalle_Venta`) ON DELETE CASCADE ON UPDATE CASCADE,
+			ADD CONSTRAINT `detalles_ventas_lotes_ibfk_2` FOREIGN KEY (`FK_Lote`) REFERENCES `inventario_lotes` (`ID_Lote`) ON DELETE CASCADE ON UPDATE CASCADE;
+		");
+
 		$this->link->query("ALTER TABLE `detalle_compras` ADD CONSTRAINT `detalle_compras_ibfk_1` FOREIGN KEY (`FK_Compra`) REFERENCES `compras` (`ID_Compra`) ON DELETE CASCADE ON UPDATE CASCADE;");
+
+		$this->link->query("ALTER TABLE `detalle_compras_lotes`
+			ADD CONSTRAINT `detalle_compras_lotes_ibfk_1` FOREIGN KEY (`FK_Detalle_Compra`) REFERENCES `detalle_compras` (`ID_Detalle_Compra`) ON DELETE CASCADE ON UPDATE CASCADE,
+			ADD CONSTRAINT `detalle_compras_lotes_ibfk_2` FOREIGN KEY (`FK_Lote`) REFERENCES `inventario_lotes` (`ID_Lote`) ON DELETE CASCADE ON UPDATE CASCADE;
+		");
 
 		$this->link->query("ALTER TABLE `devoluciones` ADD CONSTRAINT `devoluciones_ibfk_1` FOREIGN KEY (`FK_Detalle_Venta`) REFERENCES `detalles_ventas` (`ID_Detalle_Venta`) ON DELETE CASCADE ON UPDATE CASCADE;");
 
@@ -1243,6 +1362,8 @@ class m_modelo extends conexion
 		$this->link->query("ALTER TABLE `impuestos_ventas` ADD CONSTRAINT `impuestos_ventas_ibfk_1` FOREIGN KEY (`FK_Detalle_Venta`) REFERENCES `detalles_ventas` (`ID_Detalle_Venta`) ON DELETE CASCADE ON UPDATE CASCADE;");
 
 		$this->link->query("ALTER TABLE `inventario` ADD CONSTRAINT `inventario_ibfk_2` FOREIGN KEY (`FK_Producto`) REFERENCES `productos` (`ID_Producto`) ON DELETE CASCADE ON UPDATE CASCADE;");
+
+		$this->link->query("ALTER TABLE `inventario_lotes` ADD CONSTRAINT `inventario_lotes_ibfk_1` FOREIGN KEY (`FK_Inventario`) REFERENCES `inventario` (`ID_Inventario`) ON DELETE CASCADE ON UPDATE CASCADE;");
 
 		$this->link->query("ALTER TABLE `merma` ADD CONSTRAINT `merma_ibfk_1` FOREIGN KEY (`FK_Producto`) REFERENCES `productos` (`ID_Producto`) ON DELETE CASCADE ON UPDATE CASCADE;");
 

@@ -51,12 +51,16 @@ function v_hacerCompra() {
 			} else {
 				var productos = [];
 				$("#tbodyTablaProductosAgregados tr").each(function (index, el) {
+					var lotesFila = [];
+					try { lotesFila = JSON.parse($(this).attr('attrLotes') || '[]') || []; } catch (e) { lotesFila = []; }
+
 					productos.push({
 						id: $(this).attr('attrID'),
 						descripcion: $(this).children('td:eq(1)').text(),
 						costo: $(this).children('td:eq(2)').children('input').val(),
 						cantidad: $(this).children('td:eq(3)').children('input').val(),
-						subtotal: $(this).children('td:eq(4)').text().replace('$', '').replace(searchRegExp, '')
+						subtotal: $(this).children('td:eq(4)').text().replace('$', '').replace(searchRegExp, ''),
+						lotes: lotesFila
 					});
 				});
 
@@ -278,16 +282,53 @@ jQuery(document).ready(function ($) {
 						var costo = parseFloat(fila.children("td:eq(2)").children('input').val()) ? parseFloat(fila.children("td:eq(2)").children('input').val()) : 0;
 						var cantidad = parseFloat(fila.children("td:eq(3)").children('input').val()) ? parseFloat(fila.children("td:eq(3)").children('input').val()) : 0;
 
+						var lotes = [];
+						try { lotes = JSON.parse(fila.attr('attrLotes') || '[]') || []; } catch (e) { lotes = []; }
+
+						if (datos.LoteEscaneado) {
+							var enc = false;
+							for (var k = 0; k < lotes.length; k++) {
+								if (lotes[k].idLote == datos.LoteEscaneado.idLote || lotes[k].nombre == datos.LoteEscaneado.nombre) {
+									lotes[k].cantidad = (parseFloat(lotes[k].cantidad) || 0) + 1;
+									enc = true;
+									break;
+								}
+							}
+							if (!enc) {
+								lotes.push({
+									idLote: datos.LoteEscaneado.idLote,
+									nombre: datos.LoteEscaneado.nombre,
+									caducidad: datos.LoteEscaneado.caducidad,
+									cantidad: 1
+								});
+							}
+							fila.attr('attrLotes', JSON.stringify(lotes));
+							fila.find('.badgeNumLotes').text(lotes.length);
+						}
+
 						fila.children("td:eq(3)").children('input').val(cantidad + 1);
 						fila.children("td:eq(4)").children('span').text(costo * (cantidad + 1));
 					} else {
-						$("#tbodyTablaProductosAgregados").append(`<tr attrID="` + datos.ID_Producto + `">
+						var lotesInicial = [];
+						if (datos.LoteEscaneado) {
+							lotesInicial.push({
+								idLote: datos.LoteEscaneado.idLote,
+								nombre: datos.LoteEscaneado.nombre,
+								caducidad: datos.LoteEscaneado.caducidad,
+								cantidad: 1
+							});
+						}
+
+						$("#tbodyTablaProductosAgregados").append(`<tr attrID="` + datos.ID_Producto + `" attrLotes='` + JSON.stringify(lotesInicial) + `'>
 						<td>`+ datos.Codigo + `</td>
 						<td>`+ datos.Descripcion + `</td>
 						<td><input type="number" value="`+ datos.Costo + `" min="0" step="any" class="form-control campoCostoCom"></td>
 						<td><input type="number" value="1" min="0" step="any" class="form-control campoCantidadCom"></td>
 						<td><span class="dinero">`+ datos.Costo + `</span></td>
-						<td><button class="btn btn-danger btn-sm bEliminarFilaCom"><i class="fas fa-trash"></i></button></td>
+						<td>
+							<button type="button" class="btn btn-outline-primary btn-sm bGestionarLotesCompra me-1" title="Gestionar / Asignar Lotes"><i class="fas fa-boxes"></i> <span class="badge bg-secondary badgeNumLotes">` + lotesInicial.length + `</span></button>
+							<button type="button" class="btn btn-danger btn-sm bEliminarFilaCom"><i class="fas fa-trash"></i></button>
+						</td>
 					</tr>`);
 					}
 
@@ -374,13 +415,16 @@ jQuery(document).ready(function ($) {
 			fila.children("td:eq(3)").children('input').val(cantidad + 1);
 			fila.children("td:eq(4)").children('span').text(costo * (cantidad + 1));
 		} else {
-			$("#tbodyTablaProductosAgregados").append(`<tr attrID="` + id + `">
+			$("#tbodyTablaProductosAgregados").append(`<tr attrID="` + id + `" attrLotes='[]'>
 				<td>`+ codigo + `</td>
 				<td>`+ descripcion + `</td>
 				<td><input type="number" value="`+ costo + `" min="0" step="any" class="form-control campoCostoCom"></td>
 				<td><input type="number" value="1" min="0" step="any" class="form-control campoCantidadCom"></td>
 				<td><span class="dinero">`+ costo + `</span></td>
-				<td><button class="btn btn-danger btn-sm bEliminarFilaCom"><i class="fas fa-trash"></i></button></td>
+				<td>
+					<button type="button" class="btn btn-outline-primary btn-sm bGestionarLotesCompra me-1" title="Gestionar / Asignar Lotes"><i class="fas fa-boxes"></i> <span class="badge bg-secondary badgeNumLotes">0</span></button>
+					<button class="btn btn-danger btn-sm bEliminarFilaCom"><i class="fas fa-trash"></i></button>
+				</td>
 			</tr>`);
 		}
 
@@ -465,12 +509,16 @@ jQuery(document).ready(function ($) {
 
 			var productos = [];
 			$("#tbodyTablaProductosAgregados tr").each(function (index, el) {
+				var lotesFila = [];
+				try { lotesFila = JSON.parse($(this).attr('attrLotes') || '[]') || []; } catch (e) { lotesFila = []; }
+
 				productos.push({
 					id: $(this).attr('attrID'),
 					descripcion: $(this).children('td:eq(1)').text(),
 					costo: $(this).children('td:eq(2)').children('input').val(),
 					cantidad: $(this).children('td:eq(3)').children('input').val(),
-					subtotal: $(this).children('td:eq(4)').text().replace('$', '').replace(searchRegExp, '')
+					subtotal: $(this).children('td:eq(4)').text().replace('$', '').replace(searchRegExp, ''),
+					lotes: lotesFila
 				});
 			});
 
@@ -646,13 +694,19 @@ jQuery(document).ready(function ($) {
 
 					var fila = '';
 					datos.Productos.forEach(producto => {
-						fila += `<tr attrID="` + producto.FK_Producto + `">
+						var lotesJson = JSON.stringify(producto.lotes || []);
+						var numLotes = (producto.lotes || []).length;
+						var badgeClass = numLotes > 0 ? 'bg-success' : 'bg-secondary';
+						fila += `<tr attrID="` + producto.FK_Producto + `" attrLotes='` + lotesJson + `'>
 						<td>`+ producto.Codigo + `</td>
 						<td>`+ producto.Descripcion + `</td>
 						<td><input type="number" value="`+ producto.Costo + `" min="0.1" step="any" class="form-control campoCostoCom"></td>
 						<td><input type="number" value="`+ producto.Cantidad + `" min="0.1" step="any" class="form-control campoCantidadCom"></td>
 						<td><span class="dinero">`+ producto.Subtotal + `</span></td>
-						<td><button class='btn btn-danger btn-sm bEliminarFilaCom'><i class='fas fa-trash'></i></button></td>
+						<td>
+							<button type="button" class="btn btn-outline-primary btn-sm bGestionarLotesCompra me-1" title="Gestionar / Asignar Lotes"><i class="fas fa-boxes"></i> <span class="badge ` + badgeClass + ` badgeNumLotes">` + numLotes + `</span></button>
+							<button class='btn btn-danger btn-sm bEliminarFilaCom'><i class='fas fa-trash'></i></button>
+						</td>
 					</tr>`;
 					});
 
@@ -672,5 +726,148 @@ jQuery(document).ready(function ($) {
 			.always(function () {
 				$("#carga").hide();
 			});
+	});
+
+	// ==================== GESTIÓN DE LOTES EN COMPRA ====================
+	var filaCompraLotesSeleccionada = null;
+
+	function recalcularSumaLotesCompraModal() {
+		var suma = 0;
+		$("#tbodyLotesCompraModal tr").each(function () {
+			var c = parseFloat($(this).find('.campoCantLoteCompra').val()) || 0;
+			suma += c;
+		});
+		$("#lblModalCompraSumaLotes").text(Math.round(suma * 1000) / 1000);
+	}
+
+	$(document).on('click', '.bGestionarLotesCompra', function () {
+		filaCompraLotesSeleccionada = $(this).closest('tr');
+		var desc = filaCompraLotesSeleccionada.children('td:eq(1)').text();
+		var cant = parseFloat(filaCompraLotesSeleccionada.children('td:eq(3)').children('input').val()) || 1;
+
+		$("#lblModalCompraProducto").text(desc);
+		$("#lblModalCompraCantidad").text(cant);
+		$("#tbodyLotesCompraModal").empty();
+
+		var lotes = [];
+		try {
+			lotes = JSON.parse(filaCompraLotesSeleccionada.attr('attrLotes') || '[]') || [];
+		} catch (e) {
+			lotes = [];
+		}
+
+		if (lotes.length > 0) {
+			lotes.forEach(function (l) {
+				$("#tbodyLotesCompraModal").append(`
+					<tr>
+						<td><input type="text" class="form-control form-control-sm campoNomLoteCompra" placeholder="Nombre / Código Lote" value="${l.nombre || ''}"></td>
+						<td><input type="date" class="form-control form-control-sm campoCadLoteCompra" value="${l.caducidad || ''}"></td>
+						<td><input type="number" min="0.01" step="any" class="form-control form-control-sm campoCantLoteCompra text-center" value="${l.cantidad || 1}"></td>
+						<td><button type="button" class="btn btn-sm btn-outline-danger bEliminarFilaLoteCompra"><i class="fas fa-trash"></i></button></td>
+					</tr>
+				`);
+			});
+		} else {
+			$("#tbodyLotesCompraModal").append(`
+				<tr>
+					<td><input type="text" class="form-control form-control-sm campoNomLoteCompra" placeholder="Nombre / Código Lote" value=""></td>
+					<td><input type="date" class="form-control form-control-sm campoCadLoteCompra" value=""></td>
+					<td><input type="number" min="0.01" step="any" class="form-control form-control-sm campoCantLoteCompra text-center" value="${cant}"></td>
+					<td><button type="button" class="btn btn-sm btn-outline-danger bEliminarFilaLoteCompra"><i class="fas fa-trash"></i></button></td>
+				</tr>
+			`);
+		}
+
+		recalcularSumaLotesCompraModal();
+		$("#modalLotesCompra").modal('show');
+	});
+
+	$(document).on('click', '#bAgregarFilaLoteCompra', function () {
+		$("#tbodyLotesCompraModal").append(`
+			<tr>
+				<td><input type="text" class="form-control form-control-sm campoNomLoteCompra" placeholder="Nombre / Código Lote" value=""></td>
+				<td><input type="date" class="form-control form-control-sm campoCadLoteCompra" value=""></td>
+				<td><input type="number" min="0.01" step="any" class="form-control form-control-sm campoCantLoteCompra text-center" value="1"></td>
+				<td><button type="button" class="btn btn-sm btn-outline-danger bEliminarFilaLoteCompra"><i class="fas fa-trash"></i></button></td>
+			</tr>
+		`);
+		recalcularSumaLotesCompraModal();
+	});
+
+	$(document).on('click', '.bEliminarFilaLoteCompra', function () {
+		$(this).closest('tr').remove();
+		recalcularSumaLotesCompraModal();
+	});
+
+	$(document).on('input keyup change', '.campoCantLoteCompra', function () {
+		recalcularSumaLotesCompraModal();
+	});
+
+	$(document).on('click', '#bAceptarLotesCompra', function () {
+		if (!filaCompraLotesSeleccionada || filaCompraLotesSeleccionada.length === 0) {
+			$("#modalLotesCompra").modal('hide');
+			return;
+		}
+
+		var nuevosLotes = [];
+		var errorValidacion = false;
+		var sumaLotes = 0;
+
+		$("#tbodyLotesCompraModal tr").each(function () {
+			var nom = $(this).find('.campoNomLoteCompra').val().trim();
+			var cad = $(this).find('.campoCadLoteCompra').val().trim();
+			var cant = parseFloat($(this).find('.campoCantLoteCompra').val()) || 0;
+
+			if (nom !== '' || cad !== '' || cant > 0) {
+				if (nom === '') {
+					Swal.fire({
+						icon: 'warning',
+						title: 'Atención',
+						text: 'Cada lote debe tener un nombre o identificador.'
+					});
+					errorValidacion = true;
+					return false;
+				}
+				if (cad === '') {
+					Swal.fire({
+						icon: 'warning',
+						title: 'Atención',
+						text: 'Cada lote debe tener una fecha de caducidad.'
+					});
+					errorValidacion = true;
+					return false;
+				}
+				if (cant <= 0) {
+					Swal.fire({
+						icon: 'warning',
+						title: 'Atención',
+						text: 'La cantidad del lote debe ser mayor a 0.'
+					});
+					errorValidacion = true;
+					return false;
+				}
+
+				nuevosLotes.push({
+					idLote: 0,
+					nombre: nom,
+					caducidad: cad,
+					cantidad: cant
+				});
+				sumaLotes += cant;
+			}
+		});
+
+		if (errorValidacion) return;
+
+		if (nuevosLotes.length > 0) {
+			filaCompraLotesSeleccionada.attr('attrLotes', JSON.stringify(nuevosLotes));
+			filaCompraLotesSeleccionada.find('.badgeNumLotes').text(nuevosLotes.length);
+			filaCompraLotesSeleccionada.children("td:eq(3)").children('input').val(sumaLotes).trigger('change');
+		} else {
+			filaCompraLotesSeleccionada.attr('attrLotes', '[]');
+			filaCompraLotesSeleccionada.find('.badgeNumLotes').text(0);
+		}
+
+		$("#modalLotesCompra").modal('hide');
 	});
 });

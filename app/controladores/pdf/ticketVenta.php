@@ -35,6 +35,8 @@ if ($rowVentas == 'si') {
 $queryDetalles = "SELECT 
     ID_Detalle_Venta,
     FK_Venta, 
+    FK_Producto,
+    IFNULL((SELECT Codigo FROM productos WHERE ID_Producto = detalles_ventas.FK_Producto), '') AS CodigoProducto,
     Descripcion, 
     Cantidad, 
     Precio, 
@@ -109,9 +111,27 @@ if ($rowDetalles == 'si') {
         }
       }
 
+      $qLotesTicket = "SELECT dvl.FK_Lote, SUM(dvl.Cantidad) AS Cantidad, IFNULL(l.Nombre_Lote, CONCAT('Lote #', dvl.FK_Lote)) AS Nombre_Lote, DATE_FORMAT(l.Fecha_Caducidad, '%d/%m/%Y') AS Caducidad 
+                       FROM detalles_ventas_lotes dvl 
+                       LEFT JOIN inventario_lotes l ON dvl.FK_Lote = l.ID_Lote 
+                       WHERE dvl.FK_Detalle_Venta = '" . $rowDetalles[$i]['ID_Detalle_Venta'] . "' 
+                       GROUP BY dvl.FK_Lote, l.Nombre_Lote, l.Fecha_Caducidad
+                       ORDER BY MIN(dvl.ID_Detalle_Venta_Lote) ASC";
+      $rLotesTicket = $modelo->_consultar($qLotesTicket);
+      $txtLotesTicket = '';
+      if ($rLotesTicket != 'si' && $modelo->numerofilas > 0) {
+        $arrLt = array();
+        for ($lt = 0; $lt < $modelo->numerofilas; $lt++) {
+          $codLt = (!empty($rowDetalles[$i]['CodigoProducto']) ? $rowDetalles[$i]['CodigoProducto'] . '_' : '') . $rLotesTicket[$lt]['FK_Lote'];
+          $cadLt = (!empty($rLotesTicket[$lt]['Caducidad']) && $rLotesTicket[$lt]['Caducidad'] != '00/00/0000') ? ' - Cad: ' . $rLotesTicket[$lt]['Caducidad'] : '';
+          $arrLt[] = $rLotesTicket[$lt]['Nombre_Lote'] . ' [Cód: ' . $codLt . '] (' . (round($rLotesTicket[$lt]['Cantidad'] * 100) / 100) . $cadLt . ')';
+        }
+        $txtLotesTicket = '<br><span style="font-size: 13px; font-style: italic;">Lotes: ' . implode(', ', $arrLt) . '</span>';
+      }
+
       $tabla .= '
         <tr>
-          <td colspan="5" style="text-align: left;">' . $rowDetalles[$i]['Descripcion'] . ($rowDetalles[$i]["Devolucion"] > 0 ? ' <span style="color: #a7090c;">(Dev: ' . number_format($rowDetalles[$i]["Devolucion"], 2) . ')</span>' : '') . '</td>
+          <td colspan="5" style="text-align: left;">' . $rowDetalles[$i]['Descripcion'] . ($rowDetalles[$i]["Devolucion"] > 0 ? ' <span style="color: #a7090c;">(Dev: ' . number_format($rowDetalles[$i]["Devolucion"], 2) . ')</span>' : '') . $txtLotesTicket . '</td>
         </tr>
         <tr>
           <td>' . (round($cantidad * 100) / 100) . '</td>

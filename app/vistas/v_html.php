@@ -20,7 +20,7 @@
 	<link rel="stylesheet" href="vistas/assets/plugins/fancybox/dist/jquery.fancybox.min.css">
 	<link rel="stylesheet" href="vistas/assets/plugins/leaflet/leaflet.css">
 	<link rel="stylesheet" href="vistas/assets/css/style.css">
-	<link rel="stylesheet" href="vistas/assets/css/theme-ventastool.css?v=23">
+	<link rel="stylesheet" href="vistas/assets/css/theme-ventastool.css?v=24">
 </head>
 
 <body class="bodyMenu">
@@ -71,6 +71,7 @@
 					#menuProductos#
 					#menuInventario#
 					#menuClasificaciones#
+					#menuPromociones#
 					<li class="nav-item pcoded-menu-caption">
 						<label>Ventas</label>
 					</li>
@@ -1318,18 +1319,18 @@
 		src="https://www.paypal.com/sdk/js?client-id=ARSS_P46LzNOJiIj32nIVdBiCqiWZJiwtlA8AU3q9e6nZbVDEI4R1C8mciFIxsM1xsgcQz6rNPiElJsC&currency=MXN"></script>
 
 	<script src="vistas/assets/plugins/zxing-wasm/zxing-reader.iife.js"></script>
-	<script src="vistas/assets/js/main.js"></script>
+	<script src="vistas/assets/js/main.js?v=3"></script>
 	<script src="vistas/assets/js/dashboard.js"></script>
 	<script src="vistas/assets/js/sucursales.js"></script>
 	<script src="vistas/assets/js/productos.js"></script>
-	<script src="vistas/assets/js/inventario.js"></script>
+	<script src="vistas/assets/js/inventario.js?v=1"></script>
 	<script src="vistas/assets/js/clientes.js"></script>
-	<script src="vistas/assets/js/ventas.js?v=1"></script>
+	<script src="vistas/assets/js/ventas.js?v=2"></script>
 	<script src="vistas/assets/js/cajas.js"></script>
-	<script src="vistas/assets/js/caja.js?v=12"></script>
+	<script src="vistas/assets/js/caja.js?v=17"></script>
 	<script src="vistas/assets/js/proveedores.js"></script>
-	<script src="vistas/assets/js/compras.js"></script>
-	<script src="vistas/assets/js/hacerCompra.js"></script>
+	<script src="vistas/assets/js/compras.js?v=1"></script>
+	<script src="vistas/assets/js/hacerCompra.js?v=1"></script>
 	<script src="vistas/assets/js/usuarios.js?v=1"></script>
 	<script src="vistas/assets/js/reportes.js"></script>
 	<script src="vistas/assets/js/reportes_pagos.js?v=6"></script>
@@ -1337,6 +1338,7 @@
 	<script src="vistas/assets/js/cuenta.js"></script>
 	<script src="vistas/assets/js/gastos.js"></script>
 	<script src="vistas/assets/js/clasificaciones.js"></script>
+	<script src="vistas/assets/js/promociones.js?v=1"></script>
 	<script src="vistas/assets/js/traslados.js"></script>
 	<script src="vistas/assets/js/impuestos.js"></script>
 	<script src="vistas/assets/js/config_facturacion.js"></script>

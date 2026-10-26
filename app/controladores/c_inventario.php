@@ -3,6 +3,7 @@ class inventario {
 
   public function _consultar() {
     $omodelo = new m_modelo();
+    $this->_verificarTablasLotes($omodelo);
     extract($_POST);
 
     $rutaFotosProductos = 'vistas/assets/images/productos/';
@@ -89,11 +90,36 @@ class inventario {
             }
           }
 
+          $lotesHtml = '';
+          $queryLotes = "SELECT ID_Lote, Nombre_Lote, Cantidad, DATE_FORMAT(Fecha_Caducidad, '%d/%m/%Y') AS Caducidad 
+                         FROM inventario_lotes 
+                         WHERE FK_Inventario = '".$row[$i]['ID_Inventario']."' AND Cantidad > 0 
+                         ORDER BY Fecha_Caducidad ASC, ID_Lote ASC";
+          $rowLotes = $omodelo->_consultar($queryLotes);
+          $numerofilasLotes = $omodelo->numerofilas;
+          if ($rowLotes != 'si' && $numerofilasLotes > 0) {
+            $lotesHtml = '<div class="mt-2 text-start p-1 rounded" style="background-color: #f8f9fa; border: 1px solid #e2e8f0; font-size: 11px; min-width: 170px; max-width: 290px; max-height: 140px; overflow-y: auto; margin: 8px auto 0;">';
+            for ($l = 0; $l < $numerofilasLotes; $l++) {
+              $codigoLoteCompleto = $row[$i]['Codigo'] . '_' . $rowLotes[$l]['ID_Lote'];
+              $cadText = (!empty($rowLotes[$l]['Caducidad']) && $rowLotes[$l]['Caducidad'] != '00/00/0000') ? ' <span class="text-muted" style="font-size: 10px;">(' . $rowLotes[$l]['Caducidad'] . ')</span>' : '';
+              $borderClass = ($l < ($numerofilasLotes - 1)) ? 'border-bottom' : '';
+              $lotesHtml .= '<div class="py-1 px-1 ' . $borderClass . ' d-flex justify-content-between align-items-center" style="line-height: 1.2;">'
+                . '<div class="d-flex align-items-center text-truncate me-2" title="' . htmlspecialchars($rowLotes[$l]['Nombre_Lote'], ENT_QUOTES) . ' | Código escanear: ' . $codigoLoteCompleto . '">'
+                . '<button type="button" class="btn btn-sm btn-link p-0 me-1 text-secondary bImprimirLote" attrIDLote="' . $rowLotes[$l]['ID_Lote'] . '" title="Imprimir código de este lote (' . $codigoLoteCompleto . ')"><i class="fas fa-barcode"></i></button>'
+                . '<span class="badge bg-dark text-white font-monospace me-1 py-0 px-1" style="font-size: 10px;" title="Código para escanear en caja">' . $codigoLoteCompleto . '</span>'
+                . '<span class="text-truncate"><b>' . htmlspecialchars($rowLotes[$l]['Nombre_Lote']) . '</b></span>' . $cadText
+                . '</div>'
+                . '<span class="cantidad badge bg-primary text-white" style="font-size: 11px;">' . $rowLotes[$l]['Cantidad'] . '</span>'
+                . '</div>';
+            }
+            $lotesHtml .= '</div>';
+          }
+
           $arreglo['data'][$i] = array(
             'ID' => $row[$i]['ID_Inventario'],
             'Codigo' => $foto . $row[$i]['Codigo'],
             'Descripcion' => $row[$i]['Descripcion'],
-            'Existencia' => '<span class="cantidad" style="font-size: 18px; color: '.$color.';">' . $row[$i]['Existencia'] . '</span><br><b>Stock Mínimo: </b><span class="cantidad">' . $row[$i]['Stock_Minimo'] . '</span><br><b>Stock Máximo: </b><span class="cantidad">' . $row[$i]['Stock_Maximo'] . '</span>',
+            'Existencia' => '<span class="cantidad" style="font-size: 18px; color: '.$color.';">' . $row[$i]['Existencia'] . '</span><br><b>Stock Mínimo: </b><span class="cantidad">' . $row[$i]['Stock_Minimo'] . '</span><br><b>Stock Máximo: </b><span class="cantidad">' . $row[$i]['Stock_Maximo'] . '</span><br><div class="mt-2 d-flex justify-content-center align-items-center gap-1"><button type="button" class="btn btn-sm btn-primary bGestionarLotes" style="width: auto !important; min-width: 82px; height: 32px; padding: 0 10px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; white-space: nowrap;" title="Gestionar Lotes" attrID="' . $row[$i]['ID_Inventario'] . '" attrExistencia="' . $row[$i]['Existencia'] . '" attrCodigo="' . htmlspecialchars($row[$i]['Codigo'], ENT_QUOTES) . '" attrDescripcion="' . htmlspecialchars($row[$i]['Descripcion'], ENT_QUOTES) . '"><i class="fas fa-boxes"></i> <span>Lotes</span></button><button type="button" class="btn btn-sm btn-secondary bImprimirTodosLotes" style="width: 32px; height: 32px; padding: 0; display: inline-flex; align-items: center; justify-content: center;" title="Imprimir códigos de todos los lotes" attrID="' . $row[$i]['ID_Inventario'] . '"><i class="fas fa-barcode"></i></button></div>' . $lotesHtml,
             'Sucursales' => $sucursales,
             'Costo' => '<span class="dinero">' . $row[$i]['Costo'] . '</span>',
             'Precio' => '<span class="dinero">' . $row[$i]['Precio'] . '</span>',
@@ -490,7 +516,131 @@ class inventario {
 
         $omodelo->movimiento($query, $_SESSION['user_punto_venta']['ID_Usuario']);
       }
+    } else if ($tipo == 'consultarLotes') {
+      $this->_verificarTablasLotes($omodelo);
+      $id = $omodelo->link->real_escape_string($id);
+
+      $queryInfo = "SELECT i.ID_Inventario, i.Cantidad AS Existencia, p.Codigo, p.Descripcion FROM inventario i INNER JOIN productos p ON i.FK_Producto = p.ID_Producto WHERE i.ID_Inventario = '$id'";
+      $rowInfo = $omodelo->_consultar($queryInfo);
+
+      if ($rowInfo == 'si' || $omodelo->numerofilas == 0) {
+        echo json_encode(array('error' => 'Inventario no encontrado'));
+        return;
+      }
+
+      $queryLotes = "SELECT ID_Lote, FK_Inventario, Nombre_Lote, Fecha_Caducidad, Cantidad, DATE_FORMAT(Fecha_Caducidad, '%Y-%m-%d') AS Fecha_Caducidad_Input, DATE_FORMAT(Fecha_Caducidad, '%d/%m/%Y') AS Fecha_Caducidad_Visual FROM inventario_lotes WHERE FK_Inventario = '$id' ORDER BY Fecha_Caducidad ASC, ID_Lote ASC";
+      $rowLotes = $omodelo->_consultar($queryLotes);
+      $lotes = array();
+      $totalLoteado = 0;
+
+      if ($rowLotes != 'si' && $omodelo->numerofilas > 0) {
+        for ($k = 0; $k < $omodelo->numerofilas; $k++) {
+          $lotes[] = array(
+            'ID_Lote' => $rowLotes[$k]['ID_Lote'],
+            'Nombre_Lote' => $rowLotes[$k]['Nombre_Lote'],
+            'Fecha_Caducidad' => $rowLotes[$k]['Fecha_Caducidad_Input'],
+            'Fecha_Caducidad_Visual' => $rowLotes[$k]['Fecha_Caducidad_Visual'],
+            'Cantidad' => floatval($rowLotes[$k]['Cantidad'])
+          );
+          $totalLoteado += floatval($rowLotes[$k]['Cantidad']);
+        }
+      }
+
+      echo json_encode(array(
+        'idInventario' => $rowInfo[0]['ID_Inventario'],
+        'codigo' => $rowInfo[0]['Codigo'],
+        'descripcion' => $rowInfo[0]['Descripcion'],
+        'existencia' => floatval($rowInfo[0]['Existencia']),
+        'totalLoteado' => $totalLoteado,
+        'lotes' => $lotes
+      ));
+    } else if ($tipo == 'guardarLotes') {
+      $this->_verificarTablasLotes($omodelo);
+      $id = $omodelo->link->real_escape_string($id);
+      $lotes = isset($lotes) ? json_decode($lotes, true) : array();
+
+      $queryInfo = "SELECT Cantidad FROM inventario WHERE ID_Inventario = '$id'";
+      $rowInfo = $omodelo->_consultar($queryInfo);
+      if ($rowInfo == 'si' || $omodelo->numerofilas == 0) {
+        echo 'Error: Inventario no encontrado.';
+        return;
+      }
+      $existencia = floatval($rowInfo[0]['Cantidad']);
+
+      $suma = 0;
+      foreach ($lotes as $l) {
+        $suma += floatval($l['cantidad']);
+      }
+
+      if ($suma > $existencia) {
+        echo "Error: La suma de los lotes ($suma) supera la existencia actual ($existencia).";
+        return;
+      }
+
+      foreach ($lotes as $l) {
+        $idLote = isset($l['idLote']) ? intval($l['idLote']) : 0;
+        $nombre = $omodelo->link->real_escape_string(trim($l['nombre']));
+        $caducidad = $omodelo->link->real_escape_string(trim($l['caducidad']));
+        $cantidad = floatval($l['cantidad']);
+
+        if ($idLote > 0) {
+          $queryUp = "UPDATE inventario_lotes SET Nombre_Lote = '$nombre', Fecha_Caducidad = '$caducidad', Cantidad = '$cantidad' WHERE ID_Lote = '$idLote' AND FK_Inventario = '$id'";
+          $omodelo->_insertar($queryUp);
+        } else {
+          $queryIn = "INSERT INTO inventario_lotes SET FK_Inventario = '$id', Nombre_Lote = '$nombre', Fecha_Caducidad = '$caducidad', Cantidad = '$cantidad', Fecha_Registro = NOW()";
+          $omodelo->_insertar($queryIn);
+        }
+      }
+
+      echo 'Correcto';
+    } else if ($tipo == 'eliminarLote') {
+      $this->_verificarTablasLotes($omodelo);
+      $idLote = $omodelo->link->real_escape_string($idLote);
+      $queryDel = "DELETE FROM inventario_lotes WHERE ID_Lote = '$idLote'";
+      $error = $omodelo->_insertar($queryDel);
+      if ($error == 'si') {
+        echo 'Error: ' . mysqli_error($omodelo->link);
+      } else {
+        echo 'Correcto';
+      }
     }
+  }
+
+  private function _verificarTablasLotes($omodelo) {
+    $q1 = "CREATE TABLE IF NOT EXISTS `inventario_lotes` (
+      `ID_Lote` int(11) NOT NULL AUTO_INCREMENT,
+      `FK_Inventario` int(11) NOT NULL,
+      `Nombre_Lote` varchar(100) NOT NULL,
+      `Fecha_Caducidad` date NOT NULL,
+      `Cantidad` double NOT NULL,
+      `Fecha_Registro` datetime NOT NULL,
+      PRIMARY KEY (`ID_Lote`),
+      KEY `FK_Inventario` (`FK_Inventario`),
+      KEY `Fecha_Caducidad` (`Fecha_Caducidad`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=latin1;";
+    $omodelo->_insertar($q1);
+
+    $q2 = "CREATE TABLE IF NOT EXISTS `detalles_ventas_lotes` (
+      `ID_Detalle_Venta_Lote` int(11) NOT NULL AUTO_INCREMENT,
+      `FK_Detalle_Venta` int(11) NOT NULL,
+      `FK_Lote` int(11) NOT NULL,
+      `Cantidad` double NOT NULL,
+      PRIMARY KEY (`ID_Detalle_Venta_Lote`),
+      KEY `FK_Detalle_Venta` (`FK_Detalle_Venta`),
+      KEY `FK_Lote` (`FK_Lote`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=latin1;";
+    $omodelo->_insertar($q2);
+
+    $q3 = "CREATE TABLE IF NOT EXISTS `detalle_compras_lotes` (
+      `ID_Detalle_Compra_Lote` int(11) NOT NULL AUTO_INCREMENT,
+      `FK_Detalle_Compra` int(11) NOT NULL,
+      `FK_Lote` int(11) NOT NULL,
+      `Cantidad` double NOT NULL,
+      PRIMARY KEY (`ID_Detalle_Compra_Lote`),
+      KEY `FK_Detalle_Compra` (`FK_Detalle_Compra`),
+      KEY `FK_Lote` (`FK_Lote`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=latin1;";
+    $omodelo->_insertar($q3);
   }
 }
 ?>

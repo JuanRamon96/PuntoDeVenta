@@ -2,6 +2,48 @@
 class caja
 {
 
+  private function _promocionProducto($omodelo, $idProducto, $fkClasificacion)
+  {
+    $idProducto = $omodelo->link->real_escape_string($idProducto);
+    $fkClasificacion = $omodelo->link->real_escape_string($fkClasificacion);
+
+    $query = "SELECT 
+      ID_Promocion, 
+      Nombre, 
+      Tipo, 
+      Cantidad, 
+      Modo_Cantidad, 
+      Tipo_Beneficio, 
+      Precio_Fijo, 
+      Tipo_Descuento, 
+      Descuento 
+    FROM promociones 
+    WHERE Estado = 1 AND (
+      (Tipo = 'Producto' AND FK_Producto = '$idProducto') 
+      OR (Tipo = 'Clasificacion' AND FK_Clasificacion = '$fkClasificacion')
+    ) 
+    ORDER BY (Tipo = 'Producto') DESC 
+    LIMIT 1";
+
+    $row = $omodelo->_consultar($query);
+
+    if ($row == 'si' || $omodelo->numerofilas == 0) {
+      return null;
+    }
+
+    return array(
+      'ID_Promocion' => $row[0]['ID_Promocion'],
+      'Nombre' => $row[0]['Nombre'],
+      'Tipo' => $row[0]['Tipo'],
+      'Cantidad' => floatval($row[0]['Cantidad']),
+      'Modo_Cantidad' => $row[0]['Modo_Cantidad'],
+      'Tipo_Beneficio' => $row[0]['Tipo_Beneficio'],
+      'Precio_Fijo' => floatval($row[0]['Precio_Fijo']),
+      'Tipo_Descuento' => $row[0]['Tipo_Descuento'],
+      'Descuento' => floatval($row[0]['Descuento'])
+    );
+  }
+
   public function _consultar()
   {
     $omodelo = new m_modelo();
@@ -10,10 +52,31 @@ class caja
     $arreglo = array();
 
     if ($tipo == 'agregarProducto') {
-      $codigo = $omodelo->link->real_escape_string($codigo);
-      $query = "SELECT ID_Producto, Codigo, Descripcion, Precio, Precio_Mayoreo, Clase, IFNULL(Cantidad, 0) AS Existencia FROM productos LEFT JOIN inventario ON FK_Producto = ID_Producto WHERE Codigo = '$codigo'";
+      $this->_verificarTablasLotes($omodelo);
+      $codigo = $omodelo->link->real_escape_string(trim($codigo));
+
+      $loteIdBuscado = 0;
+      $codigoBase = $codigo;
+      if (strpos($codigo, '_') !== false) {
+        $partes = explode('_', $codigo, 2);
+        $codigoBase = trim($partes[0]);
+        $loteIdBuscado = intval(trim($partes[1]));
+      } else if (strpos($codigo, '-') !== false) {
+        $partes = explode('-', $codigo, 2);
+        $codigoBase = trim($partes[0]);
+        $loteIdBuscado = intval(trim($partes[1]));
+      }
+
+      $query = "SELECT ID_Producto, Codigo, Descripcion, Precio, Precio_Mayoreo, Clase, FK_Clasificacion, IFNULL(Cantidad, 0) AS Existencia FROM productos LEFT JOIN inventario ON FK_Producto = ID_Producto WHERE Codigo = '$codigoBase'";
       $row = $omodelo->_consultar($query);
       $numerofilas = $omodelo->numerofilas;
+
+      if ($numerofilas == 0 && $codigoBase !== $codigo) {
+        $query = "SELECT ID_Producto, Codigo, Descripcion, Precio, Precio_Mayoreo, Clase, FK_Clasificacion, IFNULL(Cantidad, 0) AS Existencia FROM productos LEFT JOIN inventario ON FK_Producto = ID_Producto WHERE Codigo = '$codigo'";
+        $row = $omodelo->_consultar($query);
+        $numerofilas = $omodelo->numerofilas;
+        $loteIdBuscado = 0;
+      }
 
       if ($row == 'si') {
         echo 'Error: ' . mysqli_error($omodelo->link);
@@ -51,6 +114,25 @@ class caja
             }
           }
 
+          $loteInfo = null;
+          $idProd = $row[0]['ID_Producto'];
+          if ($loteIdBuscado > 0) {
+            $qLote = "SELECT l.ID_Lote, l.Nombre_Lote, DATE_FORMAT(l.Fecha_Caducidad, '%d-%m-%Y') AS Fecha_Caducidad_Fmt, DATE_FORMAT(l.Fecha_Caducidad, '%Y-%m-%d') AS Fecha_Caducidad, l.Cantidad 
+                      FROM inventario_lotes l 
+                      INNER JOIN inventario i ON l.FK_Inventario = i.ID_Inventario 
+                      WHERE l.ID_Lote = '$loteIdBuscado' AND i.FK_Producto = '$idProd'";
+            $rLote = $omodelo->_consultar($qLote);
+            if ($rLote != 'si' && $omodelo->numerofilas > 0) {
+              $loteInfo = array(
+                'idLote' => intval($rLote[0]['ID_Lote']),
+                'nombre' => $rLote[0]['Nombre_Lote'],
+                'caducidad' => $rLote[0]['Fecha_Caducidad'],
+                'caducidadFmt' => $rLote[0]['Fecha_Caducidad_Fmt'],
+                'cantidad' => 1
+              );
+            }
+          }
+
           $arreglo = array(
             'ID_Producto' => $row[0]['ID_Producto'],
             'Codigo' => $row[0]['Codigo'],
@@ -59,7 +141,9 @@ class caja
             'Precio_Mayoreo' => $row[0]['Precio_Mayoreo'],
             'Clase' => $row[0]['Clase'],
             'Existencia' => $row[0]['Existencia'],
-            'Impuestos' => $impuestos
+            'Impuestos' => $impuestos,
+            'Promocion' => $this->_promocionProducto($omodelo, $row[0]['ID_Producto'], $row[0]['FK_Clasificacion']),
+            'Lote' => $loteInfo
           );
 
           echo json_encode($arreglo);
@@ -97,6 +181,7 @@ class caja
         Codigo, 
         Descripcion, 
         Clase, 
+        FK_Clasificacion, 
         IFNULL(Cantidad, 0) AS Existencia, 
         Costo, 
         Precio, 
@@ -151,6 +236,9 @@ class caja
               </div>';
             }
 
+            $promocion = $this->_promocionProducto($omodelo, $row[$i]['ID_Producto'], $row[$i]['FK_Clasificacion']);
+            $promoData = '<span class="promoData oculto" style="display:none;">' . htmlspecialchars(json_encode($promocion), ENT_QUOTES, 'UTF-8') . '</span>';
+
             $arreglo['data'][$i] = array(
               'ID' => $row[$i]['ID_Producto'],
               'Codigo' => $foto . $row[$i]['Codigo'],
@@ -159,7 +247,7 @@ class caja
               'Costo' => '<span class="dinero">' . $row[$i]['Costo'] . '</span>',
               'Precio' => '<span class="dinero">' . $row[$i]['Precio'] . '</span>',
               'Precio_Mayoreo' => '<span class="dinero">' . $row[$i]['Precio_Mayoreo'] . '</span>',
-              'Impuestos' => $impuestos,
+              'Impuestos' => $impuestos . $promoData,
               'Existencia' => '<span class="cantidad">' . $row[$i]['Existencia'] . '</span>',
             );
           }
@@ -448,6 +536,69 @@ class caja
               if ($error2 == 'si') {
                 echo "Error 3: " . mysqli_error($omodelo->link);
                 return;
+              }
+            }
+
+            // Gestion de lotes
+            $cantPorDescontar = floatval($producto['cantidad']);
+            $idProdActual = $producto['id'];
+
+            $qInv = "SELECT ID_Inventario FROM inventario WHERE FK_Producto = '$idProdActual'";
+            $rInv = $omodelo->_consultar($qInv);
+            if ($rInv != 'si' && $omodelo->numerofilas > 0) {
+              $idInventarioActual = $rInv[0]['ID_Inventario'];
+
+              // 1. Deducir lotes explicitamente asignados (si se enviaron)
+              if (!empty($producto['lotes']) && is_array($producto['lotes'])) {
+                foreach ($producto['lotes'] as $loteItem) {
+                  $idLoteReq = isset($loteItem['idLote']) ? intval($loteItem['idLote']) : 0;
+                  $cantLoteReq = isset($loteItem['cantidad']) ? floatval($loteItem['cantidad']) : 0;
+
+                  if ($idLoteReq > 0 && $cantLoteReq > 0 && $cantPorDescontar > 0) {
+                    $qCheck = "SELECT ID_Lote, Cantidad FROM inventario_lotes WHERE ID_Lote = '$idLoteReq' AND FK_Inventario = '$idInventarioActual'";
+                    $rCheck = $omodelo->_consultar($qCheck);
+                    if ($rCheck != 'si' && $omodelo->numerofilas > 0) {
+                      $cantDeducir = min($cantLoteReq, $cantPorDescontar);
+                      if ($cantDeducir > 0) {
+                        $omodelo->_insertar("UPDATE inventario_lotes SET Cantidad = GREATEST(0, Cantidad - $cantDeducir) WHERE ID_Lote = '$idLoteReq'");
+                        $qChk = "SELECT ID_Detalle_Venta_Lote FROM detalles_ventas_lotes WHERE FK_Detalle_Venta = '$idDetalleVenta' AND FK_Lote = '$idLoteReq'";
+                        $rChk = $omodelo->_consultar($qChk);
+                        if ($rChk != 'si' && $omodelo->numerofilas > 0) {
+                          $omodelo->_insertar("UPDATE detalles_ventas_lotes SET Cantidad = Cantidad + $cantDeducir WHERE ID_Detalle_Venta_Lote = '" . $rChk[0]['ID_Detalle_Venta_Lote'] . "'");
+                        } else {
+                          $omodelo->_insertar("INSERT INTO detalles_ventas_lotes SET FK_Detalle_Venta = '$idDetalleVenta', FK_Lote = '$idLoteReq', Cantidad = '$cantDeducir'");
+                        }
+                        $cantPorDescontar -= $cantDeducir;
+                      }
+                    }
+                  }
+                }
+              }
+
+              // 2. Si queda cantidad pendiente por asignar lote (o no se especifico lote), deducir por FIFO (caducidad mas proxima)
+              if ($cantPorDescontar > 0) {
+                $qFifo = "SELECT ID_Lote, Cantidad FROM inventario_lotes 
+                          WHERE FK_Inventario = '$idInventarioActual' AND Cantidad > 0 
+                          ORDER BY Fecha_Caducidad ASC, ID_Lote ASC";
+                $rFifo = $omodelo->_consultar($qFifo);
+                if ($rFifo != 'si' && $omodelo->numerofilas > 0) {
+                  for ($kf = 0; $kf < $omodelo->numerofilas && $cantPorDescontar > 0; $kf++) {
+                    $idLoteFifo = $rFifo[$kf]['ID_Lote'];
+                    $stockFifo = floatval($rFifo[$kf]['Cantidad']);
+                    $cantDeducir = min($stockFifo, $cantPorDescontar);
+                    if ($cantDeducir > 0) {
+                      $omodelo->_insertar("UPDATE inventario_lotes SET Cantidad = GREATEST(0, Cantidad - $cantDeducir) WHERE ID_Lote = '$idLoteFifo'");
+                      $qChk = "SELECT ID_Detalle_Venta_Lote FROM detalles_ventas_lotes WHERE FK_Detalle_Venta = '$idDetalleVenta' AND FK_Lote = '$idLoteFifo'";
+                      $rChk = $omodelo->_consultar($qChk);
+                      if ($rChk != 'si' && $omodelo->numerofilas > 0) {
+                        $omodelo->_insertar("UPDATE detalles_ventas_lotes SET Cantidad = Cantidad + $cantDeducir WHERE ID_Detalle_Venta_Lote = '" . $rChk[0]['ID_Detalle_Venta_Lote'] . "'");
+                      } else {
+                        $omodelo->_insertar("INSERT INTO detalles_ventas_lotes SET FK_Detalle_Venta = '$idDetalleVenta', FK_Lote = '$idLoteFifo', Cantidad = '$cantDeducir'");
+                      }
+                      $cantPorDescontar -= $cantDeducir;
+                    }
+                  }
+                }
               }
             }
           }
@@ -830,6 +981,7 @@ class caja
         Precio, 
         Precio_Mayoreo, 
         Foto, 
+        FK_Clasificacion, 
         IFNULL(Cantidad, 0) AS Existencia 
       FROM productos LEFT JOIN inventario ON FK_Producto = ID_Producto 
       WHERE FK_Clasificacion = '$clasificacion' ORDER BY Descripcion";
@@ -877,6 +1029,8 @@ class caja
             }
 
             $jsonImpuestos = htmlspecialchars(json_encode($arrayImpuestos), ENT_QUOTES, 'UTF-8');
+            $promocion = $this->_promocionProducto($omodelo, $row[$i]['ID_Producto'], $row[$i]['FK_Clasificacion']);
+            $jsonPromocion = htmlspecialchars(json_encode($promocion), ENT_QUOTES, 'UTF-8');
 
             $productos .= '<div class="col-6 col-sm-4 col-lg-3">
               <div class="prodTienda vt-prod-card"
@@ -886,7 +1040,8 @@ class caja
                 attrPrecioMayoreo="' . $row[$i]['Precio_Mayoreo'] . '" 
                 attrClase="' . $row[$i]['Clase'] . '" 
                 attrExistencia="' . $row[$i]['Existencia'] . '" 
-                attrImpuestos=\'' . $jsonImpuestos . '\'>
+                attrImpuestos=\'' . $jsonImpuestos . '\'
+                attrPromocion=\'' . $jsonPromocion . '\'>
 
                 <div class="vt-prod-photo" style="background-image: url(\'' . $foto . '\');"></div>
                 <div class="vt-prod-body">
@@ -1122,6 +1277,16 @@ class caja
       if ($error == 'si') {
         echo "Error 1: " . mysqli_error($omodelo->link);
       } else {
+        // Restaurar lotes si existian detalles_ventas_lotes
+        $qLotesDel = "SELECT FK_Lote, Cantidad FROM detalles_ventas_lotes WHERE FK_Detalle_Venta = '$id'";
+        $rLotesDel = $omodelo->_consultar($qLotesDel);
+        if ($rLotesDel != 'si' && $omodelo->numerofilas > 0) {
+          for ($ld = 0; $ld < $omodelo->numerofilas; $ld++) {
+            $omodelo->_insertar("UPDATE inventario_lotes SET Cantidad = Cantidad + " . floatval($rLotesDel[$ld]['Cantidad']) . " WHERE ID_Lote = '" . $rLotesDel[$ld]['FK_Lote'] . "'");
+          }
+        }
+        $omodelo->_insertar("DELETE FROM detalles_ventas_lotes WHERE FK_Detalle_Venta = '$id'");
+
         $query1 = "DELETE FROM detalles_ventas WHERE ID_Detalle_Venta = '$id'";
         $error1 = $omodelo->_insertar($query1);
 
@@ -1134,5 +1299,42 @@ class caja
         }
       }
     }
+  }
+
+  private function _verificarTablasLotes($omodelo) {
+    $q1 = "CREATE TABLE IF NOT EXISTS `inventario_lotes` (
+      `ID_Lote` int(11) NOT NULL AUTO_INCREMENT,
+      `FK_Inventario` int(11) NOT NULL,
+      `Nombre_Lote` varchar(100) NOT NULL,
+      `Fecha_Caducidad` date NOT NULL,
+      `Cantidad` double NOT NULL,
+      `Fecha_Registro` datetime NOT NULL,
+      PRIMARY KEY (`ID_Lote`),
+      KEY `FK_Inventario` (`FK_Inventario`),
+      KEY `Fecha_Caducidad` (`Fecha_Caducidad`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=latin1;";
+    $omodelo->_insertar($q1);
+
+    $q2 = "CREATE TABLE IF NOT EXISTS `detalles_ventas_lotes` (
+      `ID_Detalle_Venta_Lote` int(11) NOT NULL AUTO_INCREMENT,
+      `FK_Detalle_Venta` int(11) NOT NULL,
+      `FK_Lote` int(11) NOT NULL,
+      `Cantidad` double NOT NULL,
+      PRIMARY KEY (`ID_Detalle_Venta_Lote`),
+      KEY `FK_Detalle_Venta` (`FK_Detalle_Venta`),
+      KEY `FK_Lote` (`FK_Lote`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=latin1;";
+    $omodelo->_insertar($q2);
+
+    $q3 = "CREATE TABLE IF NOT EXISTS `detalle_compras_lotes` (
+      `ID_Detalle_Compra_Lote` int(11) NOT NULL AUTO_INCREMENT,
+      `FK_Detalle_Compra` int(11) NOT NULL,
+      `FK_Lote` int(11) NOT NULL,
+      `Cantidad` double NOT NULL,
+      PRIMARY KEY (`ID_Detalle_Compra_Lote`),
+      KEY `FK_Detalle_Compra` (`FK_Detalle_Compra`),
+      KEY `FK_Lote` (`FK_Lote`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=latin1;";
+    $omodelo->_insertar($q3);
   }
 }

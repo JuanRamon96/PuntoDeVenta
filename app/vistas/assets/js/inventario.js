@@ -367,7 +367,7 @@ jQuery(document).ready($ => {
     
     cantidadInventario.value = '';
 
-    $('#cantidadActual').html($(this).parent().parent().children('td:eq(2)').text().replace(searchRegExp, ''));
+    $('#cantidadActual').html($(this).parent().parent().children('td:eq(2)').find('span.cantidad').first().text().replace(searchRegExp, ''));
 
     $('#bGuardarInventario').attr('attrID', $(this).attr('attrID'));
     $('#modalInventario').modal('show');
@@ -381,7 +381,7 @@ jQuery(document).ready($ => {
 
     cantidadInventarioRes.value = '';
 
-    $('#cantidadActualRes').html($(this).parent().parent().children('td:eq(2)').text().replace(searchRegExp, ''));
+    $('#cantidadActualRes').html($(this).parent().parent().children('td:eq(2)').find('span.cantidad').first().text().replace(searchRegExp, ''));
 
     $('#bGuardarInventarioRes').attr('attrID', $(this).attr('attrID'));
     $('#modalInventarioRes').modal('show');
@@ -506,4 +506,278 @@ jQuery(document).ready($ => {
       }
     });
   });
+
+  // ========================================================
+  // >>>>>>>>>>>>>>>>> GESTIÓN DE LOTES <<<<<<<<<<<<<<<<<<<<
+  // ========================================================
+
+  $(document).on('click', '.bGestionarLotes', function () {
+    const idInventario = $(this).attr('attrID');
+    cargarLotesInventarioModal(idInventario);
+  });
+
+  $(document).on('click', '#bAgregarFilaLote', function () {
+    const hoy = new Date();
+    const fechaDefecto = hoy.getFullYear() + '-' + String(hoy.getMonth() + 1).padStart(2, '0') + '-' + String(hoy.getDate()).padStart(2, '0');
+
+    const nuevaFila = `
+      <tr attrIDLote="0">
+        <td><span class="badge bg-secondary">Nuevo</span></td>
+        <td><input type="text" class="form-control form-control-sm loteNombre" placeholder="Ej. LOTE-01"></td>
+        <td><input type="date" class="form-control form-control-sm loteCaducidad" value="${fechaDefecto}"></td>
+        <td><input type="number" class="form-control form-control-sm loteCantidad text-center" value="1" min="0.01" step="any"></td>
+        <td>
+          <button type="button" class="btn btn-sm btn-outline-danger bEliminarFilaLoteTemp" title="Quitar"><i class="fas fa-trash"></i></button>
+        </td>
+      </tr>
+    `;
+    $('#tbodyLotes').append(nuevaFila);
+    recalcularTotalesLotesModal();
+  });
+
+  $(document).on('input change', '.loteCantidad', function () {
+    recalcularTotalesLotesModal();
+  });
+
+  $(document).on('click', '.bEliminarFilaLoteTemp', function () {
+    $(this).closest('tr').remove();
+    recalcularTotalesLotesModal();
+  });
+
+  $(document).on('click', '.bEliminarLote', function () {
+    const btn = $(this);
+    const idLote = btn.attr('attrIDLote');
+    const idInventario = $('#bGuardarLotes').attr('attrID');
+
+    Swal.fire({
+      title: '¿Estás seguro que quieres eliminar este lote?',
+      text: 'Esta acción no se puede deshacer.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#3085d6',
+      cancelButtonColor: '#d33',
+      cancelButtonText: '¡No, cancelar!',
+      confirmButtonText: '¡Sí, eliminar!'
+    }).then((result) => {
+      if (result.value) {
+        $.ajax({
+          url: 'index.php',
+          type: 'POST',
+          data: 'metodo=detalles&accion=inventario&tipo=eliminarLote&idLote=' + idLote,
+          beforeSend: function () {
+            $('#carga').show();
+          }
+        }).done(function (res) {
+          if (String(res ?? '').trim() === 'Correcto') {
+            Swal.fire({
+              icon: 'success',
+              title: 'Lote eliminado correctamente'
+            });
+            cargarLotesInventarioModal(idInventario);
+            tablaInventario();
+          } else {
+            Swal.fire({
+              icon: 'error',
+              title: 'Oops...',
+              text: 'Error inesperado al eliminar el lote.'
+            });
+            console.log(String(res ?? '').trim());
+          }
+        }).fail(function () {
+          console.log("Error ajax");
+        }).always(function () {
+          $('#carga').hide();
+        });
+      }
+    });
+  });
+
+  $(document).on('click', '#bGuardarLotes', function () {
+    const idInventario = $(this).attr('attrID');
+    const existenciaTotal = parseFloat($('#lblLoteExistencia').attr('attrExistencia')) || 0;
+    const lotes = [];
+    let valido = true;
+    let sumaCantidades = 0;
+
+    $('#tbodyLotes tr').each(function () {
+      const idLote = parseInt($(this).attr('attrIDLote')) || 0;
+      const nombre = String($(this).find('.loteNombre').val() ?? '').trim();
+      const caducidad = String($(this).find('.loteCaducidad').val() ?? '').trim();
+      const cantidad = parseFloat($(this).find('.loteCantidad').val()) || 0;
+
+      if (nombre === '') {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Atención',
+          text: 'Todos los lotes deben tener un nombre o identificador.'
+        });
+        valido = false;
+        return false;
+      }
+
+      if (caducidad === '') {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Atención',
+          text: 'Todos los lotes deben tener una fecha de caducidad.'
+        });
+        valido = false;
+        return false;
+      }
+
+      if (cantidad <= 0) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Atención',
+          text: 'La cantidad del lote debe ser mayor a cero.'
+        });
+        valido = false;
+        return false;
+      }
+
+      sumaCantidades += cantidad;
+      lotes.push({
+        idLote: idLote,
+        nombre: nombre,
+        caducidad: caducidad,
+        cantidad: cantidad
+      });
+    });
+
+    if (!valido) return;
+
+    if (sumaCantidades > existenciaTotal) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Error en cantidades',
+        text: `La suma de los lotes (${sumaCantidades}) no puede superar la existencia actual (${existenciaTotal}).`
+      });
+      return;
+    }
+
+    $.ajax({
+      url: 'index.php',
+      type: 'POST',
+      data: {
+        metodo: 'detalles',
+        accion: 'inventario',
+        tipo: 'guardarLotes',
+        id: idInventario,
+        lotes: JSON.stringify(lotes)
+      },
+      beforeSend: function () {
+        $('#carga').show();
+      }
+    }).done(function (res) {
+      if (String(res ?? '').trim() === 'Correcto') {
+        Swal.fire({
+          icon: 'success',
+          title: 'Lotes guardados correctamente'
+        });
+        cargarLotesInventarioModal(idInventario);
+        tablaInventario();
+      } else {
+        Swal.fire({
+          icon: 'error',
+          title: 'Oops...',
+          text: String(res ?? '').trim()
+        });
+        console.log(String(res ?? '').trim());
+      }
+    }).fail(function () {
+      console.log("Error ajax");
+    }).always(function () {
+      $('#carga').hide();
+    });
+  });
+
+  $(document).on('click', '.bImprimirLote', function () {
+    const idLote = $(this).attr('attrIDLote');
+    window.open('./controladores/pdf/imprimirCodigo.php?tipo=lote&idLote=' + idLote, '_blank');
+  });
+
+  $(document).on('click', '.bImprimirTodosLotes, #bImprimirTodosLotesModal', function () {
+    const idInventario = $(this).attr('attrID');
+    window.open('./controladores/pdf/imprimirCodigo.php?tipo=todosLotes&idInventario=' + idInventario, '_blank');
+  });
 });
+
+function cargarLotesInventarioModal(idInventario) {
+  $.ajax({
+    url: 'index.php',
+    type: 'POST',
+    data: 'metodo=detalles&accion=inventario&tipo=consultarLotes&id=' + idInventario,
+    beforeSend: function () {
+      $('#carga').show();
+    }
+  }).done(function (res) {
+    try {
+      const data = JSON.parse(String(res ?? '').trim());
+      if (data.error) {
+        Swal.fire({ icon: 'error', title: 'Oops...', text: data.error });
+        return;
+      }
+
+      $('#lotesSubtituloProducto').text(data.descripcion + ' (' + data.codigo + ')');
+      $('#lblLoteCodigo').text(data.codigo);
+      $('#lblLoteExistencia').text(data.existencia).attr('attrExistencia', data.existencia);
+      $('#bGuardarLotes').attr('attrID', data.idInventario);
+      $('#bImprimirTodosLotesModal').attr('attrID', data.idInventario);
+
+      var filasHtml = '';
+      if (data.lotes && data.lotes.length > 0) {
+        data.lotes.forEach(function (lote) {
+          filasHtml += `
+            <tr attrIDLote="${lote.ID_Lote}">
+              <td><span class="badge bg-dark font-monospace">${data.codigo}_${lote.ID_Lote}</span></td>
+              <td><input type="text" class="form-control form-control-sm loteNombre" value="${lote.Nombre_Lote}" placeholder="Nombre / Lote"></td>
+              <td><input type="date" class="form-control form-control-sm loteCaducidad" value="${lote.Fecha_Caducidad}"></td>
+              <td><input type="number" class="form-control form-control-sm loteCantidad text-center" value="${lote.Cantidad}" min="0.01" step="any"></td>
+              <td>
+                <button type="button" class="btn btn-sm btn-outline-secondary bImprimirLote" attrIDLote="${lote.ID_Lote}" title="Imprimir código de barras de este lote"><i class="fas fa-barcode"></i></button>
+                <button type="button" class="btn btn-sm btn-outline-danger bEliminarLote" attrIDLote="${lote.ID_Lote}" title="Eliminar lote"><i class="fas fa-trash"></i></button>
+              </td>
+            </tr>
+          `;
+        });
+      }
+
+      $('#tbodyLotes').html(filasHtml);
+      recalcularTotalesLotesModal();
+      $('#modalLotesInventario').modal('show');
+    } catch (e) {
+      console.log('Error parse json lotes', res);
+    }
+  }).fail(function () {
+    console.log("Error ajax");
+  }).always(function () {
+    $('#carga').hide();
+  });
+}
+
+function recalcularTotalesLotesModal() {
+  const existenciaTotal = parseFloat($('#lblLoteExistencia').attr('attrExistencia')) || 0;
+  let sumaLotes = 0;
+
+  $('#tbodyLotes tr').each(function () {
+    const cant = parseFloat($(this).find('.loteCantidad').val()) || 0;
+    sumaLotes += cant;
+  });
+
+  const disponible = existenciaTotal - sumaLotes;
+  $('#lblLoteAsignado').text(sumaLotes.toFixed(2));
+  $('#lblLoteDisponible').text(disponible.toFixed(2));
+
+  if (sumaLotes > existenciaTotal) {
+    $('#alertLotesMaxCant').text(existenciaTotal);
+    $('#alertLotesExceso').removeClass('d-none');
+    $('#bGuardarLotes').prop('disabled', true);
+    $('#lblLoteAsignado').addClass('text-danger').removeClass('text-success');
+    $('#lblLoteDisponible').addClass('text-danger').removeClass('text-success');
+  } else {
+    $('#alertLotesExceso').addClass('d-none');
+    $('#bGuardarLotes').prop('disabled', false);
+    $('#lblLoteAsignado').removeClass('text-danger');
+    $('#lblLoteDisponible').removeClass('text-danger').addClass('text-success');
+  }
+}

@@ -297,8 +297,8 @@
                         <thead>
                             <th>Código</th>
                             <th>Descripcion</th>
-                            <th>Cantidad</th>
                             <th>Costo</th>
+                            <th>Cantidad</th>
                             <th>Total</th>
                         </thead>
                         <tbody id="verProdOrden">
@@ -313,3 +313,50 @@
         </div>
     </div>
 </div>
+
+<!-- ///////////////////////////Modal Lotes Compra////////////////////////////// -->
+<div class="modal fade" id="modalLotesCompra" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-boxes text-primary"></i> Asignar Lotes a Producto en Compra</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-light border mb-3">
+                    <strong>Producto:</strong> <span id="lblModalCompraProducto"></span><br>
+                    <strong>Cantidad Actual en Renglón:</strong> <span id="lblModalCompraCantidad" class="fw-bold text-primary"></span>
+                </div>
+                <div class="text-end mb-2">
+                    <button type="button" class="btn btn-sm btn-primary" id="bAgregarFilaLoteCompra"><i class="fas fa-plus"></i> Agregar Lote</button>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-bordered table-striped text-center align-middle" style="font-size: 13px;">
+                        <thead class="table-dark">
+                            <tr>
+                                <th style="width: 40%;">Nombre / Identificador Lote</th>
+                                <th style="width: 30%;">Fecha de Caducidad</th>
+                                <th style="width: 20%;">Cantidad</th>
+                                <th style="width: 10%;"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbodyLotesCompraModal">
+                        </tbody>
+                        <tfoot>
+                            <tr class="fw-bold bg-light">
+                                <td colspan="2" class="text-end">Suma de Lotes:</td>
+                                <td id="lblModalCompraSumaLotes" class="text-center text-primary">0</td>
+                                <td></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar <i class="fas fa-times"></i></button>
+                <button type="button" class="btn btn-success" id="bAceptarLotesCompra">Aceptar Lotes <i class="fas fa-check"></i></button>
+            </div>
+        </div>
+    </div>
+</div>
+

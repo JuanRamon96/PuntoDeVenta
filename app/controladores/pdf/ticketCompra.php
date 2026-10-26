@@ -41,10 +41,27 @@
 
   foreach ($rowDetalles as $detalle) {
     if ($detalle == null) continue;
+    $lotesCompraTxt = '';
+    $qLotes = "SELECT dcl.FK_Lote, SUM(dcl.Cantidad) AS Cantidad, IFNULL(l.Nombre_Lote, CONCAT('Lote #', dcl.FK_Lote)) AS Nombre_Lote, DATE_FORMAT(l.Fecha_Caducidad, '%d/%m/%Y') AS Caducidad 
+               FROM detalle_compras_lotes dcl 
+               LEFT JOIN inventario_lotes l ON dcl.FK_Lote = l.ID_Lote 
+               WHERE dcl.FK_Detalle_Compra = '".$detalle['ID_Detalle_Compra']."' 
+               GROUP BY dcl.FK_Lote, l.Nombre_Lote, l.Fecha_Caducidad
+               ORDER BY MIN(dcl.ID_Detalle_Compra_Lote) ASC";
+    $rLotes = $modelo->_consultar($qLotes);
+    if ($rLotes != 'si' && $modelo->numerofilas > 0) {
+      $arrLt = array();
+      for ($l = 0; $l < $modelo->numerofilas; $l++) {
+        $codLoteTicket = (!empty($detalle['Codigo']) ? $detalle['Codigo'] . '_' : '') . $rLotes[$l]['FK_Lote'];
+        $cadStr = (!empty($rLotes[$l]['Caducidad']) && $rLotes[$l]['Caducidad'] != '00/00/0000') ? ' - Cad: ' . $rLotes[$l]['Caducidad'] : '';
+        $arrLt[] = $rLotes[$l]['Nombre_Lote'] . ' [Cód: ' . $codLoteTicket . '] (' . (round($rLotes[$l]['Cantidad'] * 100) / 100) . $cadStr . ')';
+      }
+      $lotesCompraTxt = '<br><span style="font-size: 11px; font-style: italic;">Lotes: ' . implode(', ', $arrLt) . '</span>';
+    }
     $tabla .= '
       <tr>
         <td>'.$detalle['Codigo'].'</td>
-        <td>'.$detalle['Descripcion'].'</td>
+        <td>'.$detalle['Descripcion'].$lotesCompraTxt.'</td>
         <td>$'.number_format($detalle['Costo'], 2).'</td>
         <td>'.number_format($detalle['Cantidad'], 2).'</td>
         <td>$'.number_format($detalle['Subtotal'], 2).'</td>

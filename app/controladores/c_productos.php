@@ -12,6 +12,24 @@ class productos
     $pagina = $omodelo->link->real_escape_string($pagina);
     $ordenColumna = $omodelo->link->real_escape_string($ordenColumna);
     $orden = $omodelo->link->real_escape_string($orden);
+
+    $columnasOrdenValidas = array(
+      'Fecha' => 'productos.Fecha_Registro',
+      'Codigo' => 'Codigo',
+      'Descripcion' => 'productos.Descripcion',
+      'Clase' => 'Clase',
+      'Costo' => 'Costo',
+      'Costo_Promedio' => 'Costo_Promedio',
+      'Precio' => 'Precio',
+      'Precio_Mayoreo' => 'Precio_Mayoreo',
+      'Stock_Minimo' => 'Stock_Minimo',
+      'Stock_Maximo' => 'Stock_Maximo',
+      'Clasificacion' => 'clasificaciones.Nombre'
+    );
+
+    $columnaOrderSql = isset($columnasOrdenValidas[$ordenColumna]) ? $columnasOrdenValidas[$ordenColumna] : 'productos.Fecha_Registro';
+    $ordenSql = (strtoupper($orden) === 'ASC') ? 'ASC' : 'DESC';
+
     $arreglo = array();
 
     $busqueda = '';
@@ -65,7 +83,7 @@ class productos
       DATE_FORMAT(productos.Fecha_Registro, '%d-%m-%Y %r') AS Fecha_Registro, 
       (SELECT COUNT(*) FROM productos $busqueda) AS Num 
     FROM productos LEFT JOIN clasificaciones ON FK_Clasificacion = ID_Clasificacion 
-    $busqueda ORDER BY $ordenColumna $orden LIMIT $limit OFFSET " . (($pagina * $limit) - $limit);
+    $busqueda ORDER BY $columnaOrderSql $ordenSql LIMIT $limit OFFSET " . (($pagina * $limit) - $limit);
     $row = $omodelo->_consultar($query);
     $numerofilas = $omodelo->numerofilas;
 

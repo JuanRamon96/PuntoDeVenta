@@ -31,7 +31,7 @@
                   <th>Stock Mínimo</th>
                   <th>Stock Máximo</th>
                   <th>Clasificación</th>
-                  <th>Impuestos</th>
+                  <th orden="No">Impuestos</th>
                   <th orden="No">Acciones</th>
                 </tr>
               </thead>

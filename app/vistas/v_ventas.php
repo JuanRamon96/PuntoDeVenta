@@ -57,7 +57,7 @@
                   <th>Precio</th>
                   <th>Cantidad</th>
                   <th>Descuento</th>
-                  <th>Impuestos</th>
+                  <th orden="No">Impuestos</th>
                   <th>Total</th>
                 </tr>
               </thead>

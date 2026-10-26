@@ -243,3 +243,74 @@
     </div>
   </div>
 </div>
+
+<!-- ///////////////////////////Modal Lotes////////////////////////////// -->
+<div class="modal fade" id="modalLotesInventario" tabindex="-1">
+  <div class="modal-dialog modal-xl modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div>
+          <h5 class="fw-bold modal-title mb-0"><i class="fas fa-boxes text-primary"></i> Gestión de Lotes y Caducidades</h5>
+          <small class="text-muted" id="lotesSubtituloProducto"></small>
+        </div>
+        <button class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row mb-3 p-2 bg-light rounded text-center g-2 align-items-center">
+          <div class="col-md-3">
+            <span class="text-muted d-block small">Código Base</span>
+            <span class="fw-bold fs-6" id="lblLoteCodigo">-</span>
+          </div>
+          <div class="col-md-3">
+            <span class="text-muted d-block small">Existencia Total en Inventario</span>
+            <span class="fw-bold fs-5 text-primary" id="lblLoteExistencia">0</span>
+          </div>
+          <div class="col-md-3">
+            <span class="text-muted d-block small">Total Asignado a Lotes</span>
+            <span class="fw-bold fs-5" id="lblLoteAsignado">0</span>
+          </div>
+          <div class="col-md-3">
+            <span class="text-muted d-block small">Disponible por Lotear</span>
+            <span class="fw-bold fs-5 text-success" id="lblLoteDisponible">0</span>
+          </div>
+        </div>
+
+        <div class="row mb-2">
+          <div class="col-6">
+            <button type="button" class="btn btn-sm btn-primary" id="bAgregarFilaLote"><i class="fas fa-plus"></i> Agregar Lote</button>
+          </div>
+          <div class="col-6 text-end">
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="bImprimirTodosLotesModal"><i class="fas fa-barcode"></i> Imprimir Códigos de Todos los Lotes</button>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="col-12 table-responsive">
+            <table class="table table-hover table-striped table-bordered text-center align-middle" id="tablaLotesModal" style="font-size: 13px;">
+              <thead class="table-dark">
+                <tr>
+                  <th style="width: 15%;">Código Escanear</th>
+                  <th style="width: 25%;">Nombre / Identificador de Lote</th>
+                  <th style="width: 25%;">Fecha de Caducidad</th>
+                  <th style="width: 15%;">Cantidad</th>
+                  <th style="width: 20%;">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="tbodyLotes">
+                <!-- Filas dinámicas -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div id="alertLotesExceso" class="alert alert-danger py-2 mt-2 d-none" role="alert">
+          <i class="fas fa-exclamation-triangle"></i> <strong>Atención:</strong> La cantidad total en lotes no puede exceder la existencia actual del inventario (<span id="alertLotesMaxCant">0</span>).
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar <i class="fas fa-times"></i></button>
+        <button type="button" class="btn btn-success" id="bGuardarLotes"><i class="fas fa-save"></i> Guardar Lotes</button>
+      </div>
+    </div>
+  </div>
+</div>

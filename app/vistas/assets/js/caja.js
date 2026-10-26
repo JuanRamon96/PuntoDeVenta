@@ -14,6 +14,353 @@ function imprimirTicketCaja(src) {
   $("#printer").html('<iframe id="iframePrint" src="' + src + '" onload="document.getElementById(\'iframePrint\').contentWindow.print()"></iframe>');
 }
 
+//>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+//>>>>>>>>>>>>>>Núcleo de cálculo de filas de caja>>>>>>>>>
+//>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+// Estas funciones centralizan el cálculo de precio/descuento/impuestos/total
+// de cada fila de #tablaCaja (incluyendo promociones), para que TODOS los
+// puntos donde se agrega, incrementa, resta o modifica un producto usen la
+// misma lógica y no se desincronicen entre sí.
+
+// Normaliza el arreglo de impuestos que llega de "agregarProducto" (escaneo/IntVarios)
+function mapearImpuestosAgregarProducto(impuestos) {
+  return (impuestos || []).map(function (imp) {
+    return {
+      id: imp.FK_Impuesto,
+      nombre: imp.Nombre,
+      valor: parseFloat(imp.Porcentaje) || 0,
+      factor: imp.Tipo_Factor,
+      clase: imp.Clase,
+      clave: imp.Clave_CFDI
+    };
+  });
+}
+
+// Normaliza el arreglo de impuestos embebido en las tarjetas del grid táctil
+function mapearImpuestosTouch(impuestos) {
+  return (impuestos || []).map(function (imp) {
+    return {
+      id: imp.FK_Impuesto,
+      nombre: imp.Nombre,
+      valor: parseFloat(imp.Porcentaje) || 0,
+      factor: imp.Tipo_Factor,
+      clase: imp.Clase,
+      clave: imp.Clave
+    };
+  });
+}
+
+// Calcula el subtotal de una fila (precio de lista x cantidad) aplicando, si
+// corresponde, la promoción del producto/clasificación. No conoce nada de
+// descuento manual ni mayoreo, eso lo resuelve recalcularFilaProducto().
+function calcularPromocion(promocion, precioBase, cantidad) {
+  precioBase = parseFloat(precioBase) || 0;
+  cantidad = parseFloat(cantidad) || 0;
+
+  var sinPromocion = { aplica: false, subtotal: precioBase * cantidad, etiqueta: '' };
+
+  if (!promocion || !promocion.Cantidad || parseFloat(promocion.Cantidad) <= 0) {
+    return sinPromocion;
+  }
+
+  var N = parseFloat(promocion.Cantidad);
+  var esPaquete = promocion.Modo_Cantidad === 'Paquete';
+
+  if (cantidad < N) {
+    return sinPromocion;
+  }
+
+  function subtotalGrupo(cantidadGrupo) {
+    var normal = precioBase * cantidadGrupo;
+    var conBeneficio;
+
+    if (promocion.Tipo_Beneficio === 'Precio_Fijo') {
+      // En modo Paquete, Precio_Fijo es el TOTAL del paquete completo.
+      // En modo Mínima (sin paquete), Precio_Fijo es el precio por pieza.
+      conBeneficio = esPaquete ? parseFloat(promocion.Precio_Fijo) : (parseFloat(promocion.Precio_Fijo) * cantidadGrupo);
+    } else if (promocion.Tipo_Descuento === 'Porcentaje') {
+      conBeneficio = normal * (1 - (parseFloat(promocion.Descuento) / 100));
+    } else {
+      // Monto ($), siempre por pieza
+      conBeneficio = normal - (parseFloat(promocion.Descuento) * cantidadGrupo);
+    }
+
+    return Math.max(0, conBeneficio);
+  }
+
+  var subtotal;
+  if (esPaquete) {
+    var paquetes = Math.floor(cantidad / N);
+    var resto = cantidad - (paquetes * N);
+    subtotal = (paquetes * subtotalGrupo(N)) + (resto * precioBase);
+  } else {
+    subtotal = subtotalGrupo(cantidad);
+  }
+
+  return { aplica: true, subtotal: subtotal, etiqueta: promocion.Nombre || 'Promoción' };
+}
+
+// Calcula el desglose de impuestos sobre un subtotal ya definido (con o sin
+// promoción/descuento/mayoreo aplicado). Reutiliza el mismo formato de <p>
+// que ya se usaba en todos los bloques originales para que el resto del
+// código (mayoreo, descuento manual, edición manual de precio) lo pueda
+// seguir leyendo del DOM sin cambios.
+function calcularImpuestosSobreSubtotal(impuestos, subtotal, cantidad) {
+  var totalImpuestos = 0;
+  var html = '';
+
+  (impuestos || []).forEach(function (impuesto) {
+    var valor = parseFloat(impuesto.valor) || 0;
+    var factor = (impuesto.factor || '').toString();
+    var factorUpper = factor.toUpperCase();
+    var clase = (impuesto.clase || '').toString();
+    var claseUpper = clase.toUpperCase();
+    var impuestoFila = 0;
+
+    if (factorUpper === 'EXENTO') {
+      impuestoFila = 0;
+    } else if (factorUpper === 'CUOTA') {
+      impuestoFila = cantidad * valor;
+    } else {
+      impuestoFila = subtotal * (valor / 100);
+    }
+
+    if (claseUpper === 'RETENCION' || claseUpper === 'RETENIDO') {
+      totalImpuestos -= impuestoFila;
+    } else {
+      totalImpuestos += impuestoFila;
+    }
+
+    html += '<p class="m-0" attrID="' + impuesto.id + '" clave="' + (impuesto.clave || '') + '"><b>' + clase + '</b> <span>' + impuesto.nombre + '</span> <span class="valor ' + (factor === 'Cuota' ? 'dinero' : 'porcentaje') + '">' + valor + '</span> (<span class="dinero">' + impuestoFila + '</span>) <b>' + factor + '</b></p>';
+  });
+
+  return { totalImpuestos: totalImpuestos, html: html };
+}
+
+// Quita una fila de #tablaCaja y deja activa la fila anterior (o la primera).
+function eliminarFilaCaja(fila) {
+  if (!fila || fila.length === 0) return;
+
+  var indice = fila.index();
+  fila.remove();
+
+  var nuevoIndice = indice - 1 >= 0 ? indice - 1 : 0;
+  $("#tablaCaja").children('tbody').children('tr').removeClass('activa');
+  $("#tablaCaja").children('tbody').children('tr:eq(' + nuevoIndice + ')').addClass('activa');
+
+  totalCaja();
+}
+
+// Recalcula por completo las columnas de precio/cantidad/descuento/impuestos/
+// total de una fila ya existente en #tablaCaja, a partir de sus atributos
+// (attrPrecioBase, attrPrecioMayoreo, attrUsaMayoreo, attrDescuentoManual,
+// attrImpuestos, attrPromocion) y la nueva cantidad indicada. Si la
+// promoción aplica, tiene PRIORIDAD sobre mayoreo y descuento manual.
+function recalcularFilaProducto(fila, cantidad) {
+  if (!fila || fila.length === 0) return;
+
+  cantidad = parseFloat(cantidad) || 0;
+
+  if (cantidad <= 0) {
+    eliminarFilaCaja(fila);
+    return;
+  }
+
+  var precioBase = parseFloat(fila.attr('attrPrecioBase')) || 0;
+  var precioMayoreo = parseFloat(fila.attr('attrPrecioMayoreo')) || 0;
+  var usaMayoreo = fila.attr('attrUsaMayoreo') === '1';
+  var descuentoManual = parseFloat(fila.attr('attrDescuentoManual')) || 0;
+
+  var impuestos = [];
+  try { impuestos = JSON.parse(fila.attr('attrImpuestos') || '[]') || []; } catch (e) { impuestos = []; }
+
+  var promocion = null;
+  try { promocion = JSON.parse(fila.attr('attrPromocion') || 'null'); } catch (e) { promocion = null; }
+
+  var resultadoPromo = calcularPromocion(promocion, precioBase, cantidad);
+
+  var precioUnitarioMostrado = precioBase;
+  var subtotal = 0;
+  var descuentoHtml = '<span class="porcentaje">0</span> (<span class="dinero">0</span>)';
+  var promoBadge = '';
+
+  if (resultadoPromo.aplica) {
+    subtotal = resultadoPromo.subtotal;
+    // Se muestra (y se guarda) el precio PROMEDIO efectivo por pieza, ya
+    // repartiendo el beneficio de la promoción entre todas las piezas de la
+    // fila (incluyendo las que no alcanzaron a completar el paquete). Así
+    // el ticket y detalles_ventas reflejan lo que realmente costó cada una,
+    // no el precio de lista.
+    precioUnitarioMostrado = cantidad > 0 ? (subtotal / cantidad) : precioBase;
+    promoBadge = ' <span class="badge bg-success promo-badge" title="Promoción aplicada: ' + resultadoPromo.etiqueta + ' (precio de lista: $' + precioBase + ')"><i class="fas fa-tags"></i></span>';
+  } else {
+    var precioUnitario = (usaMayoreo && precioMayoreo > 0) ? precioMayoreo : precioBase;
+    precioUnitarioMostrado = precioUnitario;
+
+    var totalSinDescuento = precioUnitario * cantidad;
+    var importeDescuento = totalSinDescuento * (descuentoManual / 100);
+    subtotal = totalSinDescuento - importeDescuento;
+
+    if (descuentoManual > 0) {
+      descuentoHtml = '<span class="porcentaje">' + descuentoManual + '</span> (<span class="dinero">' + importeDescuento + '</span>)';
+    }
+  }
+
+  var resImp = calcularImpuestosSobreSubtotal(impuestos, subtotal, cantidad);
+  var total = subtotal + resImp.totalImpuestos;
+
+  fila.attr('attrTienePromocion', resultadoPromo.aplica ? '1' : '0');
+
+  fila.children('td:eq(2)').html('<span class="dinero" attrMayoreo="' + precioMayoreo + '">' + precioUnitarioMostrado + '</span>' + promoBadge);
+  fila.children('td:eq(3)').html('<span class="cantidad">' + cantidad + '</span>');
+  fila.children('td:eq(4)').html(descuentoHtml);
+  fila.children('td:eq(5)').html('<b>SUB: <span class="dinero">' + subtotal + '</span></b><br>' + resImp.html);
+  fila.children('td:eq(6)').html('<span class="dinero">' + total + '</span>');
+
+  // Ajustar lotes en attrLotes si la cantidad fue reducida por debajo de la suma de lotes
+  var lotesActualesFila = [];
+  try { lotesActualesFila = JSON.parse(fila.attr('attrLotes') || '[]') || []; } catch (e) { lotesActualesFila = []; }
+  if (lotesActualesFila.length > 0) {
+    var sumaLotesFila = 0;
+    lotesActualesFila.forEach(function (l) { sumaLotesFila += parseFloat(l.cantidad) || 0; });
+    if (sumaLotesFila > cantidad) {
+      var cantRestante = cantidad;
+      var lotesAjustados = [];
+      for (var la = 0; la < lotesActualesFila.length; la++) {
+        var cLot = parseFloat(lotesActualesFila[la].cantidad) || 0;
+        if (cantRestante <= 0) break;
+        var tomar = Math.min(cLot, cantRestante);
+        if (tomar > 0) {
+          lotesActualesFila[la].cantidad = tomar;
+          lotesAjustados.push(lotesActualesFila[la]);
+          cantRestante -= tomar;
+        }
+      }
+      fila.attr('attrLotes', JSON.stringify(lotesAjustados));
+    }
+  }
+  actualizarBadgesLotesCaja(fila);
+
+  totalCaja();
+}
+
+// Actualiza los badges visuales de lotes asignados en la celda de descripcion
+function actualizarBadgesLotesCaja(fila) {
+  if (!fila || fila.length === 0) return;
+  var lotes = [];
+  try { lotes = JSON.parse(fila.attr('attrLotes') || '[]') || []; } catch (e) { lotes = []; }
+  var cont = fila.find('.contenedor-lotes-caja');
+  if (cont.length === 0) {
+    fila.children('td:eq(1)').append('<div class="contenedor-lotes-caja"></div>');
+    cont = fila.find('.contenedor-lotes-caja');
+  }
+  cont.empty();
+  if (lotes.length > 0) {
+    var codProdFila = fila.children('td:eq(0)').text().trim();
+    lotes.forEach(function (l) {
+      var codScan = (codProdFila && l.idLote) ? (' [' + codProdFila + '_' + l.idLote + ']') : '';
+      var txt = (l.nombre ? l.nombre : ('Lote #' + l.idLote)) + codScan + ' (' + l.cantidad + ')';
+      cont.append('<span class="badge bg-info text-dark me-1" style="font-size: 10px;" title="Caducidad: ' + (l.caducidad || 'N/A') + '"><i class="fas fa-box"></i> ' + txt + '</span>');
+    });
+  }
+}
+
+// Suma/resta "delta" a la cantidad de una fila y recalcula. Si la cantidad
+// resultante es <= 0, la fila se elimina (mismo comportamiento que siempre
+// tuvo el botón de quitar producto).
+function cambiarCantidadFila(fila, delta) {
+  if (!fila || fila.length === 0) return;
+
+  var cantidadActual = parseFloat(fila.children('td:eq(3)').children('span.cantidad').text().replace(',', '')) || 0;
+  recalcularFilaProducto(fila, cantidadActual + delta);
+}
+
+// Verifica si una fila tiene promoción activa dada su cantidad actual.
+function filaTienePromocionActiva(fila) {
+  if (!fila || fila.length === 0) return false;
+
+  var precioBase = parseFloat(fila.attr('attrPrecioBase')) || 0;
+  var cantidadActual = parseFloat(fila.children('td:eq(3)').children('span.cantidad').text().replace(',', '')) || 0;
+
+  var promocion = null;
+  try { promocion = JSON.parse(fila.attr('attrPromocion') || 'null'); } catch (e) { promocion = null; }
+
+  return calcularPromocion(promocion, precioBase, cantidadActual).aplica;
+}
+
+// Agrega un producto a #tablaCaja (o incrementa su cantidad si ya está en la
+// mesa). "datos" = {id, codigo, descripcion, precio, precioMayoreo,
+// existencia, impuestos (ya normalizados), promocion, cantidad, lote}
+function crearFilaProducto(datos) {
+  $("#tablaCaja").children('tbody').children('tr').removeClass('activa');
+
+  var claseOculta = localStorage.getItem("cajaTouch") === "true" ? 'oculto' : '';
+  var filaExistente = $("#tablaCaja").children('tbody').children('tr[attrID="' + datos.id + '"]');
+
+  if (filaExistente.length > 0) {
+    var cantidadActual = parseFloat(filaExistente.children('td:eq(3)').children('span.cantidad').text().replace(',', '')) || 0;
+    filaExistente.addClass('activa');
+
+    var lotesActuales = [];
+    try { lotesActuales = JSON.parse(filaExistente.attr('attrLotes') || '[]') || []; } catch (e) { lotesActuales = []; }
+
+    if (datos.lote && datos.lote.idLote) {
+      var cantLoteInc = parseFloat(datos.cantidad) || 1;
+      var enc = false;
+      for (var kl = 0; kl < lotesActuales.length; kl++) {
+        if (lotesActuales[kl].idLote == datos.lote.idLote) {
+          lotesActuales[kl].cantidad = (parseFloat(lotesActuales[kl].cantidad) || 0) + cantLoteInc;
+          enc = true;
+          break;
+        }
+      }
+      if (!enc) {
+        lotesActuales.push({
+          idLote: datos.lote.idLote,
+          nombre: datos.lote.nombre || '',
+          caducidad: datos.lote.caducidad || '',
+          cantidad: cantLoteInc
+        });
+      }
+      filaExistente.attr('attrLotes', JSON.stringify(lotesActuales));
+    }
+
+    recalcularFilaProducto(filaExistente, cantidadActual + (parseFloat(datos.cantidad) || 0));
+  } else {
+    var nuevaFila = $('<tr attrID="' + datos.id + '" class="activa"></tr>');
+    nuevaFila.attr('attrPrecioBase', parseFloat(datos.precio) || 0);
+    nuevaFila.attr('attrPrecioMayoreo', parseFloat(datos.precioMayoreo) || 0);
+    nuevaFila.attr('attrUsaMayoreo', '0');
+    nuevaFila.attr('attrDescuentoManual', '0');
+    nuevaFila.attr('attrExistencia', datos.existencia || 0);
+    nuevaFila.attr('attrImpuestos', JSON.stringify(datos.impuestos || []));
+    nuevaFila.attr('attrPromocion', JSON.stringify(datos.promocion || null));
+
+    var lotesIniciales = [];
+    if (datos.lote && datos.lote.idLote) {
+      lotesIniciales.push({
+        idLote: datos.lote.idLote,
+        nombre: datos.lote.nombre || '',
+        caducidad: datos.lote.caducidad || '',
+        cantidad: parseFloat(datos.cantidad) || 1
+      });
+    }
+    nuevaFila.attr('attrLotes', JSON.stringify(lotesIniciales));
+
+    nuevaFila.html(
+      '<td class="' + claseOculta + '">' + datos.codigo + '</td>' +
+      '<td><span class="desc-prod-caja">' + datos.descripcion + '</span><div class="contenedor-lotes-caja"></div></td>' +
+      '<td></td><td></td><td></td><td></td><td></td>' +
+      '<td class="' + claseOculta + '"><span class="cantidad">' + (datos.existencia || 0) + '</span></td>'
+    );
+
+    $("#tablaCaja").children('tbody').prepend(nuevaFila);
+    recalcularFilaProducto(nuevaFila, parseFloat(datos.cantidad) || 0);
+  }
+
+  audio1.play();
+}
+
 let cantidadGranel = IMask(
   document.getElementById('cantidadGranel'),
   {
@@ -282,6 +629,10 @@ function agregarProdBusqueda(fila) {
     });
   });
 
+  var promocionTexto = fila.children('td:eq(5)').children('span.promoData').text();
+  var promocionBusqueda = null;
+  try { promocionBusqueda = promocionTexto ? JSON.parse(promocionTexto) : null; } catch (e) { promocionBusqueda = null; }
+
   if (fila.children('td:eq(2)').text() === "Granel") {
     let verImpuestos = '';
     let totalImpuestos = 0;
@@ -308,6 +659,8 @@ function agregarProdBusqueda(fila) {
     $("#datosGranel").attr('attrCodigo', fila.children('td:eq(1)').text());
     $("#datosGranel").attr('attrExistencia', existencia);
     $("#datosGranel").attr('attrPrecio', precio);
+    $("#datosGranel").attr('attrImpuestos', JSON.stringify(impuestos));
+    $("#datosGranel").attr('attrPromocion', JSON.stringify(promocionBusqueda));
     $("#datosGranel").html(`
       <h4 class="text-center">` + fila.children('td:eq(0)').text() + `</h4>
       <h5 class="text-center">
@@ -326,88 +679,17 @@ function agregarProdBusqueda(fila) {
 
     moneda();
   } else {
-    $("#tablaCaja").children('tbody').children('tr').removeClass('activa');
-    if ($("#tablaCaja").children('tbody').children('tr[attrID=' + fila.attr('id') + ']').length > 0) {
-      var filaCaja = $("#tablaCaja").children('tbody').children('tr[attrID=' + fila.attr('id') + ']');
-      var cantidad = parseFloat(filaCaja.children('td:eq(3)').children('span.cantidad').text().replace(',', '')) + 1;
-      var descuento = parseFloat(filaCaja.children('td:eq(4)').children('span.porcentaje').text().replace('%', '').replace(',', '')) || 0;
-      var desDinero = ((precio * cantidad) * (descuento / 100));
-
-      var descuHtml = '<span class="porcentaje">0</span> (<span class="dinero">0</span>)';
-      if (descuento > 0) {
-        descuHtml = '<span class="porcentaje">' + descuento + '</span> (<span class="dinero">' + desDinero + '</span>)';
-      }
-
-      let subTotal = ((precio * cantidad) - desDinero);
-
-      let verImpuestos = '';
-      let totalImpuestos = 0;
-      impuestos.forEach((impuesto) => {
-        let impuestoFila = 0;
-        if (impuesto.factor.toUpperCase() === 'CUOTA') {
-          impuestoFila = cantidad * impuesto.valor;
-        } else {
-          impuestoFila = subTotal * (impuesto.valor / 100);
-        }
-
-        if (impuesto.clase.toUpperCase() === 'RETENCION' || impuesto.clase.toUpperCase() === 'RETENIDO') {
-          totalImpuestos -= impuestoFila;
-        } else {
-          totalImpuestos += impuestoFila;
-        }
-        verImpuestos += '<p class="m-0" attrID="' + impuesto.id + '" clave="' + impuesto.clave + '"><b>' + impuesto.clase + '</b> <span>' + impuesto.nombre + '</span> <span class="valor ' + (impuesto.factor === 'Cuota' ? 'dinero' : 'porcentaje') + '">' + impuesto.valor + '</span> (<span class="dinero">' + impuestoFila + '</span>) - <b>' + impuesto.factor + '</b></p>';
-      });
-
-      let total = subTotal + totalImpuestos;
-
-      filaCaja.addClass('activa');
-      filaCaja.html(`
-        <td>`+ fila.children('td:eq(1)').text() + `</td>
-        <td>`+ fila.children('td:eq(0)').text() + `</td>
-        <td><span class="dinero" attrMayoreo="` + mayoreo + `">` + precio + `</span></td>
-        <td><span class="cantidad">`+ cantidad + `</span></td>
-        <td>`+ descuHtml + `</td>
-        <td><b>SUB: <span class="dinero">` + subTotal + `</span></b><br>` + verImpuestos + `</td>
-        <td><span class="dinero">`+ total + `</span></td>
-        <td><span class="cantidad">`+ existencia + `</span></td>
-      `);
-    } else {
-      let verImpuestos = '';
-      let totalImpuestos = 0;
-      let cantidad = 1;
-
-      impuestos.forEach((impuesto) => {
-        let impuestoFila = 0;
-        if (impuesto.factor.toUpperCase() === 'CUOTA') {
-          impuestoFila = cantidad * impuesto.valor;
-        } else {
-          impuestoFila = precio * (impuesto.valor / 100);
-        }
-
-        if (impuesto.clase.toUpperCase() === 'RETENCION' || impuesto.clase.toUpperCase() === 'RETENIDO') {
-          totalImpuestos -= impuestoFila;
-        } else {
-          totalImpuestos += impuestoFila;
-        }
-        verImpuestos += '<p class="m-0" attrID="' + impuesto.id + '" clave="' + impuesto.clave + '"><b>' + impuesto.clase + '</b> <span>' + impuesto.nombre + '</span> <span class="valor ' + (impuesto.factor === 'Cuota' ? 'dinero' : 'porcentaje') + '">' + impuesto.valor + '</span> (<span class="dinero">' + impuestoFila + '</span>) - <b>' + impuesto.factor + '</b></p>';
-      });
-
-      let total = precio + totalImpuestos;
-
-      $("#tablaCaja").children('tbody').prepend(`<tr attrID="${fila.attr('id')}" class="activa">
-        <td>` + fila.children('td:eq(1)').text() + `</td>
-        <td>` + fila.children('td:eq(0)').text() + `</td>
-        <td><span class="dinero" attrMayoreo="` + mayoreo + `">` + precio + `</span></td>
-        <td><span class="cantidad">1</span></td>
-        <td><span class="porcentaje">0</span> (<span class="dinero">0</span>)</td>
-        <td><b>SUB: <span class="dinero">` + precio + `</span></b><br>` + verImpuestos + `</td>
-        <td><span class="dinero">` + total + `</span></td>
-        <td><span class="cantidad">` + existencia + `</span></td>
-      </tr>`);
-    }
-
-    audio1.play();
-    totalCaja();
+    crearFilaProducto({
+      id: fila.attr('id'),
+      codigo: fila.children('td:eq(1)').text(),
+      descripcion: fila.children('td:eq(0)').text(),
+      precio: precio,
+      precioMayoreo: mayoreo,
+      existencia: existencia,
+      impuestos: impuestos,
+      promocion: promocionBusqueda,
+      cantidad: 1
+    });
   }
 
   $("#MBuscarProd").modal('hide');
@@ -489,6 +771,22 @@ function elementoFullscreenCaja() {
     || document.mozFullScreenElement
     || document.msFullscreenElement
     || null;
+}
+
+var ignorarSalidaFullscreenCaja = false;
+
+// Sale de pantalla completa cuando la caja no se llego a abrir (sin caja asignada o error),
+// sin disparar el cierre/recarga del handler de fullscreenchange.
+function salirPantallaCompletaSinCerrarCaja() {
+  $(document).off('.pantallaCaja');
+  if (!elementoFullscreenCaja() || !document.exitFullscreen) {
+    return;
+  }
+  // Chrome dispara webkitfullscreenchange y fullscreenchange, la bandera se limpia despues de ambos
+  ignorarSalidaFullscreenCaja = true;
+  document.exitFullscreen().catch(function () {}).finally(function () {
+    setTimeout(function () { ignorarSalidaFullscreenCaja = false; }, 300);
+  });
 }
 
 // Igual que antes: se pide pantalla completa al abrir la caja. Si el navegador la niega
@@ -1008,104 +1306,10 @@ $(document).on('keydown', function (evt) {
     }
 
     if ($("#tablaCaja").children('tbody').children('tr').length > 0) {
-      const cantidad = parseFloat($("#tablaCaja").children('tbody').children('tr.activa').children('td:eq(3)').children('span.cantidad').text().replace(',', ''));
-      const descuento = parseFloat($("#tablaCaja").children('tbody').children('tr.activa').children('td:eq(4)').children('span.porcentaje').text().replace('%', '').replace(',', ''));
-      const precio = parseFloat($("#tablaCaja").children('tbody').children('tr.activa').children('td:eq(2)').children('span.dinero').text().replace('$', '').replace(',', ''));
-      const impuestos = $("#tablaCaja").children('tbody').children('tr.activa').children('td:eq(5)');
-
-      let descuHtml = '';
       if (evt.key === "+") {
-        var desDinero = ((precio * (cantidad + 1)) * (descuento / 100));
-
-        descuHtml = '<span class="porcentaje">0</span>(<span class="dinero">0</span>)';
-        if (descuento > 0) {
-          descuHtml = '<span class="porcentaje">' + descuento + '</span>(<span class="dinero">' + desDinero + '</span>)';
-        }
-
-        var subtotal = (precio * (cantidad + 1)) - desDinero;
-        let totalImpuestos = 0;
-        impuestos.children('p').each(function (index, el) {
-          let clase = $(this).children('b:first').text().trim().toUpperCase();
-          let factor = $(this).children('b:last').text().trim().toUpperCase();
-
-          let valor = parseFloat($(this).children('span.valor').text().replace('%', '').replace('$', '').replace(',', '')) || 0;
-          let impuestoFila = 0;
-
-          // --- Lógica de Tasa o Cuota ---
-          if (factor === 'EXENTO') {
-            impuestoFila = 0; // Por definición, no genera importe
-          } else if (factor === 'CUOTA') {
-            impuestoFila = (cantidad + 1) * valor;
-          } else {
-            impuestoFila = (subtotal * (valor / 100));
-          }
-
-          $(this).children('span.dinero').html(impuestoFila);
-
-          // --- Lógica de Trasladado o Retenido ---
-          if (clase === 'RETENCION' || clase === 'RETENIDO') {
-            totalImpuestos -= impuestoFila;
-          } else {
-            totalImpuestos += impuestoFila;
-          }
-        });
-
-        let total = subtotal + totalImpuestos;
-
-        $("#tablaCaja").children('tbody').children('tr.activa').children('td:eq(3)').children('span.cantidad').html(cantidad + 1);
-        $("#tablaCaja").children('tbody').children('tr.activa').children('td:eq(4)').html(descuHtml);
-        $("#tablaCaja").children('tbody').children('tr.activa').children('td:eq(5)').children('b:eq(0)').children('span.dinero').html(subtotal);
-        $("#tablaCaja").children('tbody').children('tr.activa').children('td:eq(6)').children('span.dinero').html(total);
-
-        totalCaja();
+        cambiarCantidadFila($("#tablaCaja").children('tbody').children('tr.activa'), 1);
       } else if (evt.key === "-") {
-        if ((cantidad - 1) <= 0) {
-          $("#bQuitarProducto").trigger('click');
-        } else {
-          var desDinero = ((precio * (cantidad - 1)) * (descuento / 100));
-
-          descuHtml = '<span class="porcentaje">0</span>(<span class="dinero">0</span>)';
-          if (descuento > 0) {
-            descuHtml = '<span class="porcentaje">' + descuento + '</span>(<span class="dinero">' + desDinero + '</span>)';
-          }
-
-          var subtotal = (precio * (cantidad - 1)) - desDinero;
-          let totalImpuestos = 0;
-          impuestos.children('p').each(function (index, el) {
-            let clase = $(this).children('b:first').text().trim().toUpperCase();
-            let factor = $(this).children('b:last').text().trim().toUpperCase();
-
-            let valor = parseFloat($(this).children('span.valor').text().replace('%', '').replace('$', '').replace(',', '')) || 0;
-            let impuestoFila = 0;
-
-            // --- Lógica de Tasa o Cuota ---
-            if (factor === 'EXENTO') {
-              impuestoFila = 0; // Por definición, no genera importe
-            } else if (factor === 'CUOTA') {
-              impuestoFila = (cantidad - 1) * valor;
-            } else {
-              impuestoFila = (subtotal * (valor / 100));
-            }
-
-            $(this).children('span.dinero').html(impuestoFila);
-
-            // --- Lógica de Trasladado o Retenido ---
-            if (clase === 'RETENCION' || clase === 'RETENIDO') {
-              totalImpuestos -= impuestoFila;
-            } else {
-              totalImpuestos += impuestoFila;
-            }
-          });
-
-          let total = subtotal + totalImpuestos;
-
-          $("#tablaCaja").children('tbody').children('tr.activa').children('td:eq(3)').children('span.cantidad').html(cantidad - 1);
-          $("#tablaCaja").children('tbody').children('tr.activa').children('td:eq(4)').html(descuHtml);
-          $("#tablaCaja").children('tbody').children('tr.activa').children('td:eq(5)').children('b:eq(0)').children('span.dinero').html(subtotal);
-          $("#tablaCaja").children('tbody').children('tr.activa').children('td:eq(6)').children('span.dinero').html(total);
-        }
-
-        totalCaja();
+        cambiarCantidadFila($("#tablaCaja").children('tbody').children('tr.activa'), -1);
       }
     }
 
@@ -1209,6 +1413,11 @@ jQuery(document).ready(function ($) {
   document.getElementById("bAbrirCaja").addEventListener("click", function () {
     var data = "metodo=detalles&accion=caja&tipo=consultarCaja";
 
+    // La pantalla completa se pide aqui, directo en el click y antes del ajax. Si se pide
+    // hasta que responde el servidor, Chrome/Edge pueden negarla (sobre todo despues de
+    // haber mostrado el selector de puertos de la bascula).
+    entrarPantallaCompletaCaja();
+
     $.ajax({
       url: 'index.php',
       type: 'POST',
@@ -1220,6 +1429,7 @@ jQuery(document).ready(function ($) {
       .done(function (res) {
         //console.log(res);
         if (String(res ?? '').trim() === "No") {
+          salirPantallaCompletaSinCerrarCaja();
           $('#bMenuCajas').trigger('click');
         } else {
           const resJson = JSON.parse(String(res ?? '').trim());
@@ -1229,8 +1439,6 @@ jQuery(document).ready(function ($) {
           $('#bDejarCaja').attr('attrID', resJson.ID_Caja);
           $('#bCorteCaja').attr('attrID', resJson.ID_Caja);
           $('#modalCaja').modal('show');
-
-          entrarPantallaCompletaCaja();
 
           setTimeout(() => {
             $('#barCodeV').focus();
@@ -1242,6 +1450,8 @@ jQuery(document).ready(function ($) {
       })
       .fail(function () {
         console.log("Error ajax");
+        salirPantallaCompletaSinCerrarCaja();
+        $("#carga").hide();
       });
   });
 
@@ -1278,7 +1488,7 @@ jQuery(document).ready(function ($) {
   });
 
   $(document).on('keypress', '#barCodeV', function (event) {
-    var regex = new RegExp("^[a-zA-Z0-9]+$");
+    var regex = new RegExp("^[a-zA-Z0-9_]+$");
     var key = event.key;
     if (!regex.test(key)) {
       event.preventDefault();
@@ -1287,7 +1497,11 @@ jQuery(document).ready(function ($) {
   });
 
   $(document).on('webkitfullscreenchange mozfullscreenchange fullscreenchange MSFullscreenChange', function () {
-    if (overlayEscanerCajaVisible() || escanerCajaIniciando || window.conectandoBascula) {
+    if (overlayEscanerCajaVisible() || escanerCajaIniciando) {
+      return;
+    }
+
+    if (ignorarSalidaFullscreenCaja) {
       return;
     }
 
@@ -1396,6 +1610,8 @@ jQuery(document).ready(function ($) {
             $("#datosGranel").attr('attrCodigo', resA.Codigo);
             $("#datosGranel").attr('attrExistencia', existencia);
             $("#datosGranel").attr('attrPrecio', precio);
+            $("#datosGranel").attr('attrImpuestos', JSON.stringify(mapearImpuestosAgregarProducto(impuestos)));
+            $("#datosGranel").attr('attrPromocion', JSON.stringify(resA.Promocion || null));
             $("#datosGranel").html(`
               <h4 class="text-center">` + resA.Descripcion + `</h4>
               <h5 class="text-center">
@@ -1414,108 +1630,18 @@ jQuery(document).ready(function ($) {
 
             moneda();
           } else {
-            $("#tablaCaja").children('tbody').children('tr').removeClass('activa');
-
-            if ($("#tablaCaja").children('tbody').children('tr[attrID=' + resA.ID_Producto + ']').length > 0) {
-              precio = $("#tablaCaja").children('tbody').children('tr[attrID=' + resA.ID_Producto + ']').children('td:eq(2)').text().replace('$', '').replace(searchRegExp, '');
-              var cantidad = parseFloat($("#tablaCaja").children('tbody').children('tr[attrID=' + resA.ID_Producto + ']').children('td:eq(3)').children('span.cantidad').text().replace(',', ''));
-              var descuento = parseFloat($("#tablaCaja").children('tbody').children('tr[attrID=' + resA.ID_Producto + ']').children('td:eq(4)').children('span.porcentaje').text().replace('%', '').replace(',', ''));
-              var desDinero = ((precio * (cantidad + 1)) * (descuento / 100));
-
-              var descuHtml = '<span class="porcentaje">0</span>(<span class="dinero">0</span>)';
-              if (descuento > 0) {
-                descuHtml = '<span class="porcentaje">' + descuento + '</span>(<span class="dinero">' + desDinero + '</span>)';
-              }
-
-              let subtotal = (precio * (cantidad + 1)) - desDinero;
-
-              let verImpuestos = '';
-              let totalImpuestos = 0;
-
-              impuestos.forEach((impuesto) => {
-                let impuestoFila = 0;
-                let valor = parseFloat(impuesto.Porcentaje) || 0;
-                let factor = (impuesto.Tipo_Factor || '').toUpperCase();
-                let clase = (impuesto.Clase || '').toUpperCase();
-
-                // --- Lógica de Tasa o Cuota ---
-                if (factor === 'EXENTO') {
-                  impuestoFila = 0; // Por definición, no genera importe
-                } else if (factor === 'CUOTA') {
-                  impuestoFila = (parseFloat(cantidad + 1) || 0) * valor;
-                } else {
-                  impuestoFila = subtotal * (valor / 100);
-                }
-
-                // --- Lógica de Trasladado o Retenido para el acumulador ---
-                if (clase === 'RETENCION' || clase === 'RETENIDO') {
-                  totalImpuestos -= impuestoFila;
-                } else {
-                  totalImpuestos += impuestoFila;
-                }
-
-                verImpuestos += '<p class="m-0" attrID="' + impuesto.FK_Impuesto + '" clave="' + impuesto.Clave_CFDI + '"><b>' + impuesto.Clase + '</b> <span>' + impuesto.Nombre + '</span> <span class="valor ' + (impuesto.Tipo_Factor === 'Cuota' ? 'dinero' : 'porcentaje') + '">' + impuesto.Porcentaje + '</span> (<span class="dinero">' + impuestoFila + '</span>) <b>' + impuesto.Tipo_Factor + '</b></p>';
-              });
-
-              let total = subtotal + totalImpuestos;
-
-              $("#tablaCaja").children('tbody').children('tr[attrID=' + resA.ID_Producto + ']').addClass('activa');
-
-              $("#tablaCaja").children('tbody').children('tr[attrID=' + resA.ID_Producto + ']').html(`
-                <td>`+ resA.Codigo + `</td>
-                <td>`+ resA.Descripcion + `</td>
-                <td><span class="dinero" attrMayoreo="` + mayoreo + `">` + precio + `</span></td>
-                <td><span class="cantidad">`+ (cantidad + 1) + `</span></td>
-                <td>`+ descuHtml + `</td>
-                <td><b>SUB: <span class="dinero">`+ subtotal + `</span></b> ` + verImpuestos + `</td>
-                <td><span class="dinero">`+ total + `</span></td>
-                <td><span class="cantidad">`+ existencia + `</span></td>
-              `);
-            } else {
-              let verImpuestos = '';
-              let totalImpuestos = 0;
-
-              impuestos.forEach((impuesto) => {
-                let impuestoFila = 0;
-                let valor = parseFloat(impuesto.Porcentaje) || 0;
-                let factor = (impuesto.Tipo_Factor || '').toUpperCase();
-                let clase = (impuesto.Clase || '').toUpperCase();
-
-                // --- Lógica de Tasa o Cuota ---
-                if (factor === 'EXENTO') {
-                  impuestoFila = 0; // Por definición, no genera importe
-                } else if (factor === 'CUOTA') {
-                  impuestoFila = valor;
-                } else {
-                  impuestoFila = precio * (valor / 100);
-                }
-
-                // --- Lógica de Trasladado o Retenido para el acumulador ---
-                if (clase === 'RETENCION' || clase === 'RETENIDO') {
-                  totalImpuestos -= impuestoFila;
-                } else {
-                  totalImpuestos += impuestoFila;
-                }
-
-                verImpuestos += '<p class="m-0" attrID="' + impuesto.FK_Impuesto + '" clave="' + impuesto.Clave_CFDI + '"><b>' + impuesto.Clase + '</b> <span>' + impuesto.Nombre + '</span> <span class="valor ' + (impuesto.Tipo_Factor === 'Cuota' ? 'dinero' : 'porcentaje') + '">' + impuesto.Porcentaje + '</span> (<span class="dinero">' + impuestoFila + '</span>) - <b>' + impuesto.Tipo_Factor + '</b></p>';
-              });
-
-              let total = precio + totalImpuestos;
-
-              $("#tablaCaja").children('tbody').prepend(`<tr attrID="` + resA.ID_Producto + `" class="activa">
-                <td>`+ resA.Codigo + `</td>
-                <td>`+ resA.Descripcion + `</td>
-                <td><span class="dinero" attrMayoreo="` + mayoreo + `">` + precio + `</span></td>
-                <td><span class="cantidad">1</span></td>
-                <td><span class="porcentaje">0</span>(<span class="dinero">0</span>)</td>
-                <td><b>SUB: <span class="dinero">`+ precio + `</span></b> ` + verImpuestos + `</td>
-                <td><span class="dinero">`+ total + `</span></td>
-                <td><span class="cantidad">`+ existencia + `</span></td>
-              </tr>`);
-            }
-
-            audio1.play();
-            totalCaja();
+            crearFilaProducto({
+              id: resA.ID_Producto,
+              codigo: resA.Codigo,
+              descripcion: resA.Descripcion,
+              precio: precio,
+              precioMayoreo: mayoreo,
+              existencia: existencia,
+              impuestos: mapearImpuestosAgregarProducto(impuestos),
+              promocion: resA.Promocion,
+              cantidad: 1,
+              lote: resA.Lote || null
+            });
           }
         }
 
@@ -1530,11 +1656,7 @@ jQuery(document).ready(function ($) {
   });
 
   $(document).on('click', '#bQuitarProducto', function () {
-    const fila = $("#tablaCaja").children('tbody').children('tr.activa').index();
-    $("#tablaCaja").children('tbody').children('tr.activa').remove();
-    const eq = fila - 1 >= 0 ? fila - 1 : 0
-    $("#tablaCaja").children('tbody').children(`tr:eq(${eq})`).addClass('activa');
-    totalCaja();
+    eliminarFilaCaja($("#tablaCaja").children('tbody').children('tr.activa'));
   });
 
   $(document).on('click', '#tablaCaja tbody tr', function () {
@@ -1582,6 +1704,13 @@ jQuery(document).ready(function ($) {
       var precio = parseFloat($("#datosGranel").children('h5').children('span.dinero').text().replace('$', '').replace(',', ''));
       let impuestos = $("#datosGranel").children('div:eq(0)');
       let totalInput = $("#importeGranel").val().replaceAll(',', '');
+
+      var impuestosGranelArr = [];
+      try { impuestosGranelArr = JSON.parse($("#datosGranel").attr('attrImpuestos') || '[]') || []; } catch (e) { impuestosGranelArr = []; }
+
+      var promocionGranel = null;
+      try { promocionGranel = JSON.parse($("#datosGranel").attr('attrPromocion') || 'null'); } catch (e) { promocionGranel = null; }
+
       $("#tablaCaja").children('tbody').children('tr').removeClass('activa');
 
       var clase = '';
@@ -1589,17 +1718,22 @@ jQuery(document).ready(function ($) {
         clase = 'class="oculto"';
       }
 
-      if ($("#tablaCaja").children('tbody').children('tr[attrID=' + $("#datosGranel").attr('attrID') + ']').length > 0) {
-        var cantidad = parseFloat($("#tablaCaja").children('tbody').children('tr[attrID=' + $("#datosGranel").attr('attrID') + ']').children('td:eq(3)').children('span.cantidad').text().replace(',', ''));
-        var descuento = parseFloat($("#tablaCaja").children('tbody').children('tr[attrID=' + $("#datosGranel").attr('attrID') + ']').children('td:eq(4)').children('span.porcentaje').text().replace('%', '').replace(',', ''));
-        var desDinero = ((precio * (cantidad + cantidadInput)) * (descuento / 100));
+      var filaGranelExistente = $("#tablaCaja").children('tbody').children('tr[attrID=' + $("#datosGranel").attr('attrID') + ']');
 
+      if (filaGranelExistente.length > 0) {
+        var cantidad = parseFloat(filaGranelExistente.children('td:eq(3)').children('span.cantidad').text().replace(',', ''));
+        var descuento = parseFloat(filaGranelExistente.children('td:eq(4)').children('span.porcentaje').text().replace('%', '').replace(',', ''));
+        var cantidadTotal = cantidad + cantidadInput;
+
+        var resultadoPromoGranel = calcularPromocion(promocionGranel, precio, cantidadTotal);
+        var subTotal = resultadoPromoGranel.subtotal;
         var descuHtml = '<span class="porcentaje">0</span>(<span class="dinero">0</span>)';
-        if (descuento > 0) {
+
+        if (!resultadoPromoGranel.aplica && descuento > 0) {
+          var desDinero = ((precio * cantidadTotal) * (descuento / 100));
+          subTotal = (precio * cantidadTotal) - desDinero;
           descuHtml = '<span class="porcentaje">' + descuento + '</span>(<span class="dinero">' + desDinero + '</span>)';
         }
-
-        let subTotal = ((precio * (cantidad + cantidadInput)) - desDinero);
 
         var totalImpuestos = 0;
         if (impuestos !== null) {
@@ -1614,7 +1748,7 @@ jQuery(document).ready(function ($) {
             if (factor === 'EXENTO') {
               impuestoFila = 0; // Por definición, no genera importe
             } else if (factor === 'CUOTA') {
-              impuestoFila = (parseFloat(cantidad + cantidadInput) || 0) * valor;
+              impuestoFila = (parseFloat(cantidadTotal) || 0) * valor;
             } else {
               impuestoFila = subTotal * (valor / 100);
             }
@@ -1631,30 +1765,62 @@ jQuery(document).ready(function ($) {
         }
 
         let total = subTotal + totalImpuestos;
+        var promoBadgeGranel = '';
+        var precioMostradoGranel = precio;
+        if (resultadoPromoGranel.aplica) {
+          precioMostradoGranel = cantidadTotal > 0 ? (subTotal / cantidadTotal) : precio;
+          promoBadgeGranel = ' <span class="badge bg-success promo-badge" title="Promoción aplicada: ' + resultadoPromoGranel.etiqueta + ' (precio de lista: $' + precio + ')"><i class="fas fa-tags"></i></span>';
+        }
 
-        $("#tablaCaja").children('tbody').children('tr[attrID=' + $("#datosGranel").attr('attrID') + ']').addClass('activa');
+        filaGranelExistente.attr('attrPrecioBase', precio);
+        filaGranelExistente.attr('attrPrecioMayoreo', mayoreo || 0);
+        filaGranelExistente.attr('attrImpuestos', JSON.stringify(impuestosGranelArr));
+        filaGranelExistente.attr('attrPromocion', JSON.stringify(promocionGranel));
+        if (filaGranelExistente.attr('attrUsaMayoreo') == null) filaGranelExistente.attr('attrUsaMayoreo', '0');
+        if (filaGranelExistente.attr('attrDescuentoManual') == null) filaGranelExistente.attr('attrDescuentoManual', descuento || 0);
 
-        $("#tablaCaja").children('tbody').children('tr[attrID=' + $("#datosGranel").attr('attrID') + ']').html(`
+        filaGranelExistente.addClass('activa');
+
+        filaGranelExistente.html(`
           <td ` + clase + `>` + $("#datosGranel").attr('attrCodigo') + `</td>
           <td>` + $("#datosGranel").children('h4').text() + `</td>
-          <td><span class="dinero" attrMayoreo="` + mayoreo + `">` + precio + `</span></td>
-          <td><span class="cantidad">`+ (cantidad + cantidadInput) + `</span></td>
+          <td><span class="dinero" attrMayoreo="` + mayoreo + `">` + precioMostradoGranel + `</span>` + promoBadgeGranel + `</td>
+          <td><span class="cantidad">`+ cantidadTotal + `</span></td>
           <td>` + descuHtml + `</td>
           <td><b>SUB: <span class="dinero">` + subTotal + `</span></b><br>` + impuestos.html() + `</td>
           <td><span class="dinero">`+ total + `</span></td>
           <td ` + clase + `><span class="cantidad">` + $("#datosGranel").attr('attrExistencia') + `</span></td>
         `);
       } else {
-        $("#tablaCaja").children('tbody').prepend(`<tr attrID="` + $("#datosGranel").attr('attrID') + `" class="activa">
+        var resultadoPromoGranelNuevo = calcularPromocion(promocionGranel, precio, cantidadInput);
+        var promoBadgeGranelNuevo = '';
+        var precioMostradoGranelNuevo = precio;
+        if (resultadoPromoGranelNuevo.aplica) {
+          precioMostradoGranelNuevo = cantidadInput > 0 ? (resultadoPromoGranelNuevo.subtotal / cantidadInput) : precio;
+          promoBadgeGranelNuevo = ' <span class="badge bg-success promo-badge" title="Promoción aplicada: ' + resultadoPromoGranelNuevo.etiqueta + ' (precio de lista: $' + precio + ')"><i class="fas fa-tags"></i></span>';
+        }
+
+        var nuevaFilaGranel = $('<tr attrID="' + $("#datosGranel").attr('attrID') + '" class="activa"></tr>');
+        nuevaFilaGranel.attr('attrPrecioBase', precio);
+        nuevaFilaGranel.attr('attrPrecioMayoreo', mayoreo || 0);
+        nuevaFilaGranel.attr('attrUsaMayoreo', '0');
+        nuevaFilaGranel.attr('attrDescuentoManual', '0');
+        nuevaFilaGranel.attr('attrExistencia', $("#datosGranel").attr('attrExistencia') || 0);
+        nuevaFilaGranel.attr('attrImpuestos', JSON.stringify(impuestosGranelArr));
+        nuevaFilaGranel.attr('attrPromocion', JSON.stringify(promocionGranel));
+
+        nuevaFilaGranel.html(`
           <td `+ clase + `>` + $("#datosGranel").attr('attrCodigo') + `</td>
           <td>`+ $("#datosGranel").children('h4').text() + `</td>
-          <td><span class="dinero" attrMayoreo="` + mayoreo + `">` + precio + `</span></td>
+          <td><span class="dinero" attrMayoreo="` + mayoreo + `">` + precioMostradoGranelNuevo + `</span>` + promoBadgeGranelNuevo + `</td>
           <td><span class="cantidad">` + cantidadInput + `</span></td>
           <td><span class="porcentaje">0</span>(<span class="dinero">0</span>)</td>
-          <td><b>SUB: <span class="dinero">` + (precio * cantidadInput) + `</span></b>` + impuestos.html() + `</td>
+          <td><b>SUB: <span class="dinero">` + resultadoPromoGranelNuevo.subtotal + `</span></b>` + impuestos.html() + `</td>
           <td><span class="dinero">` + totalInput + `</span></td>
           <td `+ clase + `><span class="cantidad">` + $("#datosGranel").attr('attrExistencia') + `</span></td>
         </tr>`);
+
+        $("#tablaCaja").children('tbody').prepend(nuevaFilaGranel);
       }
 
       audio1.play();
@@ -1692,7 +1858,10 @@ jQuery(document).ready(function ($) {
   $(document).on('input', '#cantidadGranel', function () {
     let precio = parseFloat($("#datosGranel").attr('attrPrecio')) || 0;
     let cantidad = parseFloat($(this).val().replaceAll(',', '')) || 0;
-    let subtotal = cantidad * precio;
+
+    let promocionGranel = null;
+    try { promocionGranel = JSON.parse($("#datosGranel").attr('attrPromocion') || 'null'); } catch (e) { promocionGranel = null; }
+    let subtotal = calcularPromocion(promocionGranel, precio, cantidad).subtotal;
 
     let totalImpuestos = 0;
     $("#datosGranel").children('div:eq(0)').children('p').each(function () {
@@ -1881,120 +2050,22 @@ jQuery(document).ready(function ($) {
               confirmButtonText: 'Aceptar',
             });
           } else {
-            $("#tablaCaja").children('tbody').children('tr').removeClass('activa');
-
             let existencia = parseFloat(res.Existencia) || 0;
             let precio = parseFloat(res.Precio) || 0;
             let mayoreo = parseFloat(res.Precio_Mayoreo) || 0;
-            let impuestos = res.Impuestos;
 
-            var clase = '';
-            if (localStorage.getItem("cajaTouch") === "true") {
-              clase = 'class="oculto"';
-            }
-
-            if ($("#tablaCaja").children('tbody').children('tr[attrID=' + res.ID_Producto + ']').length > 0) {
-              precio = $("#tablaCaja").children('tbody').children('tr[attrID=' + res.ID_Producto + ']').children('td:eq(2)').text().replace('$', '').replace(searchRegExp, '');
-              const cantidad = parseFloat($("#tablaCaja").children('tbody').children('tr[attrID=' + res.ID_Producto + ']').children('td:eq(3)').children('span.cantidad').text().replace(',', ''));
-              const descuento = parseFloat($("#tablaCaja").children('tbody').children('tr[attrID=' + res.ID_Producto + ']').children('td:eq(4)').children('span.porcentaje').text().replace('%', '').replace(',', ''));
-              var desDinero = ((precio * (cantidad + cantidadInput)) * (descuento / 100));
-
-              var descuHtml = '<span class="porcentaje">0</span>(<span class="dinero">0</span>)';
-              if (descuento > 0) {
-                descuHtml = '<span class="porcentaje">' + descuento + '</span>(<span class="dinero">' + desDinero + '</span>)';
-              }
-
-              let subtotal = (precio * (cantidad + cantidadInput)) - desDinero;
-
-              let verImpuestos = '';
-              let totalImpuestos = 0;
-
-              impuestos.forEach((impuesto) => {
-                let impuestoFila = 0;
-                let valor = parseFloat(impuesto.Porcentaje) || 0;
-                let factor = (impuesto.Tipo_Factor || '').toUpperCase();
-                let clase = (impuesto.Clase || '').toUpperCase();
-
-                // --- Lógica de Tasa o Cuota ---
-                if (factor === 'EXENTO') {
-                  impuestoFila = 0; // Siempre cero
-                } else if (factor === 'CUOTA') {
-                  impuestoFila = (parseFloat(cantidad + cantidadInput) || 0) * valor;
-                } else {
-                  impuestoFila = subtotal * (valor / 100);
-                }
-
-                // --- Lógica de Trasladado o Retenido para el acumulador ---
-                if (clase === 'RETENCION' || clase === 'RETENIDO') {
-                  totalImpuestos -= impuestoFila;
-                } else {
-                  totalImpuestos += impuestoFila;
-                }
-
-                verImpuestos += '<p class="m-0" attrID="' + impuesto.ID_Impuesto + '"><b>' + impuesto.Clase + '</b> <span>' + impuesto.Nombre + '</span> <span class="valor ' + (impuesto.Tipo_Factor === 'Cuota' ? 'dinero' : 'porcentaje') + '">' + impuesto.Porcentaje + '</span> (<span class="dinero">' + impuestoFila + '</span>) - <b>' + impuesto.Tipo_Factor + '</b></p>';
-              });
-
-              let total = subtotal + totalImpuestos;
-
-              $("#tablaCaja").children('tbody').children('tr[attrID=' + res.ID_Producto + ']').addClass('activa');
-
-              $("#tablaCaja").children('tbody').children('tr[attrID=' + res.ID_Producto + ']').html(`
-                <td `+ clase + `>` + res.Codigo + `</td>
-                <td>`+ res.Descripcion + `</td>
-                <td><span class="dinero" attrMayoreo="${mayoreo}">` + precio + `</span></td>
-                <td><span class="cantidad">`+ (cantidad + cantidadInput) + `</span></td>
-                <td>`+ descuHtml + `</td>
-                <td><b>SUB: <span class="dinero">`+ subtotal + `</span></b> ` + verImpuestos + `</td>
-                <td><span class="dinero">`+ total + `</span></td>
-                <td `+ clase + `><span class="cantidad">` + existencia + `</span></td>
-              `);
-            } else {
-              let subtotal = precio * cantidadInput;
-
-              let verImpuestos = '';
-              let totalImpuestos = 0;
-
-              impuestos.forEach((impuesto) => {
-                let impuestoFila = 0;
-                let valor = parseFloat(impuesto.Porcentaje) || 0;
-                let factor = (impuesto.Tipo_Factor || '').toUpperCase();
-                let clase = (impuesto.Clase || '').toUpperCase();
-
-                // --- Lógica de Tasa o Cuota ---
-                if (factor === 'EXENTO') {
-                  impuestoFila = 0; // Siempre cero
-                } else if (factor === 'CUOTA') {
-                  impuestoFila = (cantidadInput || 0) * valor;
-                } else {
-                  impuestoFila = subtotal * (valor / 100);
-                }
-
-                // --- Lógica de Trasladado o Retenido para el acumulador ---
-                if (clase === 'RETENCION' || clase === 'RETENIDO') {
-                  totalImpuestos -= impuestoFila;
-                } else {
-                  totalImpuestos += impuestoFila;
-                }
-
-                verImpuestos += '<p class="m-0" attrID="' + impuesto.ID_Impuesto + '" clave="' + impuesto.Clave_CFDI + '"><b>' + impuesto.Clase + '</b> <span>' + impuesto.Nombre + '</span> <span class="valor ' + (impuesto.Tipo_Factor === 'Cuota' ? 'dinero' : 'porcentaje') + '">' + impuesto.Porcentaje + '</span> (<span class="dinero">' + impuestoFila + '</span>) <b>' + impuesto.Tipo_Factor + '</b></p>';
-              });
-
-              let total = subtotal + totalImpuestos;
-
-              $("#tablaCaja").children('tbody').prepend(`<tr attrID="` + res.ID_Producto + `" class="activa">
-                <td `+ clase + `>` + res.Codigo + `</td>
-                <td>`+ res.Descripcion + `</td>
-                <td><span class="dinero" attrMayoreo="${mayoreo}">` + precio + `</span></td>
-                <td><span class="cantidad">`+ cantidadInput + `</span></td>
-                <td><span class="porcentaje">0</span>(<span class="dinero">0</span>)</td>
-                <td><b>SUB: <span class="dinero">`+ subtotal + `</span></b> ` + verImpuestos + `</td>
-                <td><span class="dinero">`+ total + `</span></td>
-                <td `+ clase + `><span class="cantidad">` + existencia + `</span></td>
-              </tr>`);
-            }
-
-            audio1.play();
-            totalCaja();
+            crearFilaProducto({
+              id: res.ID_Producto,
+              codigo: res.Codigo,
+              descripcion: res.Descripcion,
+              precio: precio,
+              precioMayoreo: mayoreo,
+              existencia: existencia,
+              impuestos: mapearImpuestosAgregarProducto(res.Impuestos),
+              promocion: res.Promocion,
+              cantidad: cantidadInput,
+              lote: res.Lote || null
+            });
           }
         }
 
@@ -2097,20 +2168,30 @@ jQuery(document).ready(function ($) {
         clase = 'class="oculto"';
       }
 
-      $("#tablaCaja").children('tbody').prepend(`<tr attrID="0" class="activa">
-        <td `+ clase + `>0</td>
-        <td>`+ String($("#descripcionProdComun").val() ?? '').trim() + `</td>
-        <td><span class="dinero" attrMayoreo="${$("#precioProdComun").val().replaceAll(",", "")}">` + $("#precioProdComun").val().replaceAll(",", "") + `</span></td>
-        <td><span class="cantidad">`+ $("#cantidadProdComun").val().replaceAll(",", "") + `</span></td>
-        <td><span class="porcentaje">0</span>(<span class="dinero">0</span>)</td>
-        <td><b>SUB: <span class="dinero">`+ $("#precioProdComun").val().replaceAll(",", "") + `</span></b></td>
-        <td><span class="dinero">`+ (parseFloat($("#precioProdComun").val().replaceAll(",", "")) * parseFloat($("#cantidadProdComun").val().replaceAll(",", ""))) + `</span></td>
-        <td `+ clase + `>Ilim</td>
-      </tr>`);
+      var precioComun = parseFloat($("#precioProdComun").val().replaceAll(",", "")) || 0;
+      var cantidadComun = parseFloat($("#cantidadProdComun").val().replaceAll(",", "")) || 0;
+
+      var nuevaFilaComun = $('<tr attrID="0" class="activa"></tr>');
+      nuevaFilaComun.attr('attrPrecioBase', precioComun);
+      nuevaFilaComun.attr('attrPrecioMayoreo', 0);
+      nuevaFilaComun.attr('attrUsaMayoreo', '0');
+      nuevaFilaComun.attr('attrDescuentoManual', '0');
+      nuevaFilaComun.attr('attrExistencia', 'Ilim');
+      nuevaFilaComun.attr('attrImpuestos', '[]');
+      nuevaFilaComun.attr('attrPromocion', 'null');
+
+      nuevaFilaComun.html(
+        '<td ' + clase + '>0</td>' +
+        '<td>' + String($("#descripcionProdComun").val() ?? '').trim() + '</td>' +
+        '<td></td><td></td><td></td><td></td><td></td>' +
+        '<td ' + clase + '>Ilim</td>'
+      );
+
+      $("#tablaCaja").children('tbody').prepend(nuevaFilaComun);
+      recalcularFilaProducto(nuevaFilaComun, cantidadComun);
 
       audio1.play();
 
-      totalCaja();
       $("#MProdComun").modal('hide');
       $("#carga").hide();
     }
@@ -2149,58 +2230,25 @@ jQuery(document).ready(function ($) {
   $(document).on('click', '#bMayoreo', () => {
     const fila = $("#tablaCaja").children('tbody').children('tr.activa');
 
-    if (fila.length > 0) {
-      const mayoreo = parseFloat(fila.children('td:eq(2)').children('span').attr('attrMayoreo'));
+    if (fila.length === 0) return;
 
-      if (mayoreo > 0) {
-        // Actualizar precio a mayoreo
-        fila.children('td:eq(2)').children('span.dinero').html(mayoreo);
-
-        const cantidad = parseFloat(fila.children('td:eq(3)').children('span.cantidad').text().replace(',', ''));
-        const descuento = parseFloat(fila.children('td:eq(4)').children('span.porcentaje').text().replace('%', '').replace(',', '')) || 0;
-        const desDinero = (mayoreo * cantidad) * (descuento / 100);
-        const subtotal = (mayoreo * cantidad) - desDinero;
-
-        // Actualizar descuento
-        let descuHtml = '<span class="porcentaje">0</span>(<span class="dinero">0</span>)';
-        if (descuento > 0) {
-          descuHtml = '<span class="porcentaje">' + descuento + '</span>(<span class="dinero">' + desDinero + '</span>)';
-        }
-        fila.children('td:eq(4)').html(descuHtml);
-
-        // Recalcular impuestos
-        const impuestos = fila.children('td:eq(5)');
-        let totalImpuestos = 0;
-        impuestos.children('p').each(function () {
-          let clase = $(this).children('b:first').text().trim().toUpperCase();
-          let factor = $(this).children('b:last').text().trim().toUpperCase();
-          let valor = parseFloat($(this).children('span.valor').text().replace('%', '').replace('$', '').replaceAll(',', '')) || 0;
-          let impuestoFila = 0;
-
-          if (factor === 'EXENTO') {
-            impuestoFila = 0;
-          } else if (factor === 'CUOTA') {
-            impuestoFila = cantidad * valor;
-          } else {
-            impuestoFila = subtotal * (valor / 100);
-          }
-
-          $(this).children('span.dinero').html(impuestoFila);
-
-          if (clase === 'RETENCION' || clase === 'RETENIDO') {
-            totalImpuestos -= impuestoFila;
-          } else {
-            totalImpuestos += impuestoFila;
-          }
-        });
-
-        // Actualizar subtotal y total en columnas correctas
-        fila.children('td:eq(5)').children('b:eq(0)').children('span.dinero').html(subtotal);
-        fila.children('td:eq(6)').children('span.dinero').html((subtotal + totalImpuestos));
-
-        totalCaja();
-      }
+    if (filaTienePromocionActiva(fila)) {
+      Swal.fire({
+        icon: 'info',
+        title: 'Promoción activa',
+        text: 'Este producto ya tiene una promoción aplicada, no se puede usar el precio de mayoreo.'
+      });
+      return;
     }
+
+    const mayoreo = parseFloat(fila.attr('attrPrecioMayoreo')) || 0;
+    if (mayoreo <= 0) return;
+
+    const cantidadActual = parseFloat(fila.children('td:eq(3)').children('span.cantidad').text().replace(',', '')) || 0;
+    const usaMayoreo = fila.attr('attrUsaMayoreo') === '1';
+    fila.attr('attrUsaMayoreo', usaMayoreo ? '0' : '1');
+
+    recalcularFilaProducto(fila, cantidadActual);
   });
 
   //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -2416,8 +2464,19 @@ jQuery(document).ready(function ($) {
     const fila = $("#tablaCaja").children('tbody').children('tr.activa');
 
     if (fila.length > 0) {
+      if (filaTienePromocionActiva(fila)) {
+        Swal.fire({
+          icon: 'info',
+          title: 'Promoción activa',
+          text: 'Este producto ya tiene una promoción aplicada, no se puede aplicar un descuento manual.'
+        });
+        return;
+      }
+
       const descripcion = fila.children('td:eq(1)').text();
-      const total = parseFloat(fila.children('td:eq(2)').text().replace('$', '').replace(searchRegExp, '')) * parseFloat(fila.children('td:eq(3)').text().replace('$', '').replace(searchRegExp, ''));
+      const usaMayoreoActivo = fila.attr('attrUsaMayoreo') === '1';
+      const precioUnitarioActivo = usaMayoreoActivo ? (parseFloat(fila.attr('attrPrecioMayoreo')) || 0) : (parseFloat(fila.attr('attrPrecioBase')) || 0);
+      const total = precioUnitarioActivo * (parseFloat(fila.children('td:eq(3)').children('span.cantidad').text().replace(',', '')) || 0);
       const descuento = fila.children('td:eq(4)').children('span.porcentaje').text().replace('%', '').replace(searchRegExp, '');
 
       $('#descripcionDescuento').text(descripcion);
@@ -2478,45 +2537,10 @@ jQuery(document).ready(function ($) {
     } else {
       if (tipoDescuento === 0) {
         let fila = $("#tablaCaja").children('tbody').children('tr.activa');
-        const descuentoFila = fila.children('td:eq(4)');
-        descuentoFila.children('span.porcentaje').text(porcentaje.value || 0);
-        descuentoFila.children('span.dinero').text(total.value || 0);
-        fila.children('td:eq(5)').children('b:eq(0)').children('span.dinero').text(restante);
+        const cantidadActual = parseFloat(fila.children('td:eq(3)').children('span.cantidad').text().replace(',', '')) || 0;
 
-        let totalImpuestos = 0;
-        fila.children('td:eq(5)').children('p').each(function (index, el) {
-          let clase = $(this).children('b:first').text().trim().toUpperCase();
-          let factor = $(this).children('b:last').text().trim().toUpperCase();
-
-          let valor = parseFloat($(this).children('span:eq(1)').text().replace('%', '').replace('$', '').replaceAll(',', '')) || 0;
-
-          let impuestoFila = 0;
-
-          // --- Lógica de Tasa o Cuota ---
-          if (factor === 'EXENTO') {
-            impuestoFila = 0; // Siempre cero
-          } else if (factor === 'CUOTA') {
-            let cantidad = parseFloat(fila.children('td:eq(3)').children('span.cantidad').text().replace(',', '')) || 1;
-            impuestoFila = cantidad * valor;
-          } else {
-            impuestoFila = restante * (valor / 100);
-          }
-
-          $(this).children('span:eq(2)').text(impuestoFila);
-
-          // --- Lógica de Trasladado o Retenido ---
-          if (clase === 'RETENCION' || clase === 'RETENIDO') {
-            totalImpuestos -= impuestoFila;
-          } else {
-            totalImpuestos += impuestoFila;
-          }
-        });
-
-        let totalFila = restante + totalImpuestos;
-
-        fila.children('td:eq(6)').children('span.dinero').text(totalFila);
-
-        totalCaja();
+        fila.attr('attrDescuentoManual', porcentaje.value || 0);
+        recalcularFilaProducto(fila, cantidadActual);
       } else {
         $("#mosDesGeP").text($("#porcentajeDescuentoCaja").val().replaceAll(',', '') || 0);
         $("#mosDesGeD").text($("#cantidadDescuentoCaja").val().replaceAll(',', '') || 0);
@@ -2918,14 +2942,19 @@ jQuery(document).ready(function ($) {
                 });
               });
 
+              var descripProd = $(this).find('.desc-prod-caja').length > 0 ? $(this).find('.desc-prod-caja').text().trim() : $(this).children('td:eq(1)').text().trim();
+              var lotesProd = [];
+              try { lotesProd = JSON.parse($(this).attr('attrLotes') || '[]') || []; } catch (e) { lotesProd = []; }
+
               productos.push({
                 id: parseInt($(this).attr('attrid')),
-                descripcion: $(this).children('td:eq(1)').text(),
+                descripcion: descripProd,
                 precio: parseFloat($(this).children('td:eq(2)').text().replace('$', '').replaceAll(',', '')),
                 cantidad: parseFloat($(this).children('td:eq(3)').text().replaceAll(',', '')),
                 descuento: $(this).children('td:eq(4)').children('span.dinero').text().replace('$', '').replaceAll(',', ''),
                 total: parseFloat($(this).children('td:eq(6)').text().replace('$', '').replaceAll(',', '')),
-                impuestos: impuestosProducto
+                impuestos: impuestosProducto,
+                lotes: lotesProd
               });
             });
 
@@ -3596,6 +3625,9 @@ jQuery(document).ready(function ($) {
       return { html: verImpuestos, total: totalImpuestos };
     };
 
+    var promocionTouch = null;
+    try { promocionTouch = JSON.parse($this.attr('attrPromocion') || 'null'); } catch (e) { promocionTouch = null; }
+
     if (claseProd === "Granel") {
       var resImp = calcularImpuestosFila(precio, 1);
       var precioFinalConImpuestos = precio + resImp.total;
@@ -3605,7 +3637,8 @@ jQuery(document).ready(function ($) {
         'attrCodigo': codigo,
         'attrExistencia': existencia,
         'attrPrecio': precio,
-        'attrImpuestos': $this.attr('attrImpuestos')
+        'attrImpuestos': JSON.stringify(mapearImpuestosTouch(listaImpuestos)),
+        'attrPromocion': JSON.stringify(promocionTouch)
       });
 
       $("#datosGranel").html(`
@@ -3624,49 +3657,17 @@ jQuery(document).ready(function ($) {
 
       moneda();
     } else {
-      $("#tablaCaja").find('tbody tr').removeClass('activa');
-      var fila = $("#tablaCaja").find(`tbody tr[attrID="${idProd}"]`);
-
-      if (fila.length > 0) {
-        var cantidad = parseFloat(fila.find('.cantidad').first().text().replace(',', '')) + 1;
-        var descuentoPorc = parseFloat(fila.find('.porcentaje').first().text().replace('%', '')) || 0;
-
-        var subtotalAntesDescuento = precio * cantidad;
-        var importeDescuento = subtotalAntesDescuento * (descuentoPorc / 100);
-        var subtotalFinal = subtotalAntesDescuento - importeDescuento;
-
-        var resImp = calcularImpuestosFila(subtotalFinal, cantidad);
-        var totalFinalFila = subtotalFinal + resImp.total;
-
-        fila.addClass('activa');
-        fila.html(`
-          <td class="oculto">${codigo}</td>
-          <td>${descripcion}</td>
-          <td><span class="dinero" attrMayoreo="${mayoreo}">${precio}</span></td>
-          <td><span class="cantidad">${cantidad}</span></td>
-          <td><span class="porcentaje">${descuentoPorc}</span> (<span class="dinero">${importeDescuento}</span>)</td>
-          <td>${resImp.html}</td>
-          <td><span class="dinero">${totalFinalFila}</span></td>
-          <td class="oculto"><span class="cantidad">${existencia}</span></td>
-        `);
-      } else {
-        var resImp = calcularImpuestosFila(precio, 1);
-        var totalFinalFila = precio + resImp.total;
-
-        $("#tablaCaja").children('tbody').prepend(`<tr attrID="${idProd}" class="activa">
-          <td class="oculto">${codigo}</td>
-          <td>${descripcion}</td>
-          <td><span class="dinero" attrMayoreo="${mayoreo}">${precio}</span></td>
-          <td><span class="cantidad">1</span></td>
-          <td><span class="porcentaje">0</span> (<span class="dinero">0</span>)</td>
-          <td>${resImp.html}</td>
-          <td><span class="dinero">${totalFinalFila}</span></td>
-          <td class="oculto"><span class="cantidad">${existencia}</span></td>
-        </tr>`);
-      }
-
-      audio1.play();
-      totalCaja();
+      crearFilaProducto({
+        id: idProd,
+        codigo: codigo,
+        descripcion: descripcion,
+        precio: precio,
+        precioMayoreo: mayoreo,
+        existencia: existencia,
+        impuestos: mapearImpuestosTouch(listaImpuestos),
+        promocion: promocionTouch,
+        cantidad: 1
+      });
     }
 
     $("#MBuscarProd").modal('hide');
@@ -3960,6 +3961,17 @@ jQuery(document).ready(function ($) {
   //>>>>>>>>>>>>>>>>>>>>>>>>>>>>Cambiar precio>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
   //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> 
   $(document).on('dblclick', '#tablaCaja tbody tr td:eq(2)', function () {
+    var fila = $(this).parent();
+
+    if (filaTienePromocionActiva(fila)) {
+      Swal.fire({
+        icon: 'info',
+        title: 'Promoción activa',
+        text: 'Este producto ya tiene una promoción aplicada, no se puede editar el precio manualmente.'
+      });
+      return;
+    }
+
     var precio = $(this).children('span.dinero').text().replace('$', '').replaceAll(',', '');
     var mayoreo = $(this).children('span.dinero').attr('attrMayoreo');
     $(this).html('<input type="number" id="precioProdCaja" value="' + precio + '" attrMayoreo="' + mayoreo + '" style="padding: 2px 0px; text-align: center; border: none; z-index: 1; -webkit-appearance: none;" />');
@@ -3976,55 +3988,14 @@ jQuery(document).ready(function ($) {
   });
 
   $(document).on('focusout', '#precioProdCaja', function () {
-    let padre = $(this).parent().parent();
+    let fila = $(this).parent().parent();
     let precio = parseFloat($(this).val()) || 0;
-    let mayoreo = $(this).attr('attrMayoreo');
-    let cantidad = parseFloat(padre.children('td:eq(3)').children('span.cantidad').text().replace(',', ''));
-    let descuento = parseFloat(padre.children('td:eq(4)').children('span.porcentaje').text().replace('%', '').replace(',', ''));
-    let impuestos = padre.children('td:eq(5)');
-    let desDinero = (precio * cantidad) * (descuento / 100);
+    let cantidadActual = parseFloat(fila.children('td:eq(3)').children('span.cantidad').text().replace(',', '')) || 0;
 
-    let descuHtml = '<span class="porcentaje">0</span>(<span class="dinero">0</span>)';
-    if (descuento > 0) {
-      descuHtml = '<span class="porcentaje">' + descuento + '</span>(<span class="dinero">' + desDinero + '</span>)';
-    }
+    fila.attr('attrPrecioBase', precio);
+    fila.attr('attrUsaMayoreo', '0');
+    recalcularFilaProducto(fila, cantidadActual);
 
-    var subtotal = (precio * cantidad) - desDinero;
-    let totalImpuestos = 0;
-    impuestos.children('p').each(function (index, el) {
-      let clase = $(this).children('b:first').text().trim().toUpperCase();
-      let factor = $(this).children('b:last').text().trim().toUpperCase();
-
-      let valor = parseFloat($(this).children('span.valor').text().replace('%', '').replace('$', '').replace(',', '')) || 0;
-      let impuestoFila = 0;
-
-      // --- Lógica de Tasa o Cuota ---
-      if (factor === 'EXENTO') {
-        impuestoFila = 0; // Por definición, no genera importe
-      } else if (factor === 'CUOTA') {
-        impuestoFila = cantidad * valor;
-      } else {
-        impuestoFila = (subtotal * (valor / 100));
-      }
-
-      $(this).children('span.dinero').html(impuestoFila);
-
-      // --- Lógica de Trasladado o Retenido ---
-      if (clase === 'RETENCION' || clase === 'RETENIDO') {
-        totalImpuestos -= impuestoFila;
-      } else {
-        totalImpuestos += impuestoFila;
-      }
-    });
-
-    let total = subtotal + totalImpuestos;
-
-    padre.children('td:eq(2)').html('<span class="dinero" attrmayoreo="' + mayoreo + '">' + precio + '</span>');
-    padre.children('td:eq(4)').html(descuHtml);
-    padre.children('td:eq(5)').children('b:eq(0)').children('span.dinero').html(subtotal);
-    padre.children('td:eq(6)').children('span.dinero').html(total);
-
-    totalCaja();
     $("#barCodeV").focus();
   });
 

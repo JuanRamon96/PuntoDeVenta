@@ -256,10 +256,6 @@ jQuery(document).ready(function ($) {
   let reader;
   let decoder = new TextDecoder();
 
-  // Bandera global: mientras se muestra el selector de puertos del navegador, Chrome/Edge
-  // salen de pantalla completa. caja.js la revisa para no cerrar la caja en ese momento.
-  window.conectandoBascula = false;
-
   function errorSoporteBascula() {
     if (!window.isSecureContext) {
       return 'La conexion a la bascula solo funciona en un sitio seguro. Abre el sistema desde http://localhost o con https (no por la IP de la red).';
@@ -287,12 +283,6 @@ jQuery(document).ready(function ($) {
     port = puerto;
     reader = port.readable.getReader();
     $('#bConectarBascula').html('Bascula conectada <i class="fa-solid fa-check"></i>');
-  }
-
-  function volverPantallaCompleta() {
-    if ($('#modalCaja').is(':visible') && !document.fullscreenElement && document.documentElement.requestFullscreen) {
-      document.documentElement.requestFullscreen().catch(() => {});
-    }
   }
 
   // Al abrir el modal de granel se reutiliza un puerto ya autorizado (sin mostrar el selector)
@@ -332,29 +322,22 @@ jQuery(document).ready(function ($) {
       return;
     }
 
-    // requestPort() debe llamarse directo en el click (sin await/ajax/setTimeout antes).
-    // La bandera solo vale mientras el selector esta abierto; se limpia siempre al cerrarlo.
-    window.conectandoBascula = true;
-    let promesaPuerto;
-    try {
-      promesaPuerto = navigator.serial.requestPort();
-    } catch (err) {
-      promesaPuerto = Promise.reject(err);
-    }
-    promesaPuerto
-      .finally(() => {
-        // Pequeno margen para que llegue el evento fullscreenchange del selector
-        setTimeout(() => { window.conectandoBascula = false; }, 300);
-      })
+    // Si el selector de puertos se abre en pantalla completa, Chrome/Edge la quitan y despues
+    // la niegan ("not granted") hasta recargar. Por eso primero se sale de pantalla completa
+    // (el handler de fullscreenchange de caja.js cierra la caja) y luego se piden los puertos.
+    // El click sigue siendo valido para requestPort() porque la activacion dura unos segundos.
+    const salirPantallaCompleta = document.fullscreenElement && document.exitFullscreen
+      ? document.exitFullscreen().catch(() => {})
+      : Promise.resolve();
+
+    salirPantallaCompleta
+      .then(() => navigator.serial.requestPort())
       .then(puerto => abrirPuertoBascula(puerto))
       .then(() => {
         Swal.fire({
           icon: 'success',
-          title: 'La bascula se conecto correctamente'
-        }).then(() => {
-          // El click en "OK" es un gesto del usuario, permite volver a pantalla completa
-          volverPantallaCompleta();
-          $('#cantidadGranel').focus();
+          title: 'La bascula se conecto correctamente',
+          text: 'Presiona "Abrir caja" para continuar vendiendo.'
         });
       })
       .catch(err => {
@@ -372,8 +355,6 @@ jQuery(document).ready(function ($) {
           icon: 'error',
           title: 'Oops...',
           text: texto
-        }).then(() => {
-          volverPantallaCompleta();
         });
       });
   });

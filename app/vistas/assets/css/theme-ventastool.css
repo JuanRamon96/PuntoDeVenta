@@ -926,6 +926,30 @@ table.myDataTable td .btn + .btn {
   margin-left: 4px;
 }
 
+table.myDataTable td .btn-sm.bGestionarLotes {
+  width: auto !important;
+  min-width: 82px !important;
+  height: 32px !important;
+  padding: 0 10px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  white-space: nowrap !important;
+}
+
+table.myDataTable td .btn-sm.bGestionarLotes i {
+  font-size: 13px !important;
+  margin: 0 !important;
+  line-height: 1 !important;
+}
+
+table.myDataTable td .btn-sm.bGestionarLotes span {
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  line-height: 1 !important;
+}
+
 table.myDataTable tbody td a[data-fancybox] > div {
   box-shadow: 0 2px 8px rgba(15, 37, 64, 0.14);
   border: 2px solid #fff;

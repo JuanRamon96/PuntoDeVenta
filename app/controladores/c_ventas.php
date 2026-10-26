@@ -177,6 +177,7 @@ class Ventas
     $tipo = $omodelo->link->real_escape_string($tipo);
 
     if ($tipo == 'venta') {
+      $this->_verificarTablasLotes($omodelo);
       $idVenta = $omodelo->link->real_escape_string($idVenta);
 
       $buscar = trim($omodelo->link->real_escape_string($buscar));
@@ -184,6 +185,16 @@ class Ventas
       $pagina = $omodelo->link->real_escape_string($pagina);
       $ordenColumna = $omodelo->link->real_escape_string($ordenColumna);
       $orden = $omodelo->link->real_escape_string($orden);
+
+      $columnasVentaValidas = array(
+        'Producto' => 'Descripcion',
+        'Precio' => 'Precio',
+        'Cantidad' => 'Cantidad',
+        'Descuento' => 'Descuento',
+        'Total' => 'Total'
+      );
+      $columnaOrderVenta = isset($columnasVentaValidas[$ordenColumna]) ? $columnasVentaValidas[$ordenColumna] : 'ID_Detalle_Venta';
+      $ordenVenta = (strtoupper($orden) === 'DESC') ? 'DESC' : 'ASC';
 
       $arreglo = array();
 
@@ -203,6 +214,7 @@ class Ventas
         ID_Detalle_Venta, 
         FK_Venta, 
         FK_Producto, 
+        IFNULL((SELECT Codigo FROM productos WHERE ID_Producto = detalles_ventas.FK_Producto), '') AS CodigoProducto,
         Descripcion AS Producto, 
         Precio, 
         Cantidad, 
@@ -211,7 +223,7 @@ class Ventas
         IFNULL((SELECT Cantidad FROM devoluciones WHERE FK_Detalle_Venta = ID_Detalle_Venta), 0) AS Devolucion,
         (SELECT COUNT(*) FROM detalles_ventas WHERE FK_Venta = '$idVenta' $busqueda) AS Num 
       FROM detalles_ventas WHERE FK_Venta = '$idVenta' $busqueda 
-      ORDER BY $ordenColumna $orden LIMIT $limit OFFSET " . (($pagina * $limit) - $limit);
+      ORDER BY $columnaOrderVenta $ordenVenta LIMIT $limit OFFSET " . (($pagina * $limit) - $limit);
       $row = $omodelo->_consultar($query);
       $numerofilas = $omodelo->numerofilas;
 
@@ -246,11 +258,34 @@ class Ventas
               }
             }
 
+            $lotesVentaHtml = '';
+            $qLotesVenta = "SELECT dvl.FK_Lote, SUM(dvl.Cantidad) AS Cantidad, IFNULL(l.Nombre_Lote, CONCAT('Lote #', dvl.FK_Lote)) AS Nombre_Lote, DATE_FORMAT(l.Fecha_Caducidad, '%d/%m/%Y') AS Caducidad 
+                            FROM detalles_ventas_lotes dvl 
+                            LEFT JOIN inventario_lotes l ON dvl.FK_Lote = l.ID_Lote 
+                            WHERE dvl.FK_Detalle_Venta = '" . $row[$i]['ID_Detalle_Venta'] . "' 
+                            GROUP BY dvl.FK_Lote, l.Nombre_Lote, l.Fecha_Caducidad
+                            ORDER BY MIN(dvl.ID_Detalle_Venta_Lote) ASC";
+            $rLotesVenta = $omodelo->_consultar($qLotesVenta);
+            $nLotesVenta = $omodelo->numerofilas;
+            if ($rLotesVenta != 'si' && $nLotesVenta > 0) {
+              $lotesVentaHtml .= '<div class="mt-1 d-flex flex-column align-items-center gap-1">';
+              for ($lv = 0; $lv < $nLotesVenta; $lv++) {
+                $codigoLoteFmt = (!empty($row[$i]['CodigoProducto']) ? $row[$i]['CodigoProducto'] . '_' : '') . $rLotesVenta[$lv]['FK_Lote'];
+                $cadVenta = (!empty($rLotesVenta[$lv]['Caducidad']) && $rLotesVenta[$lv]['Caducidad'] != '00/00/0000') ? ' <span class="text-muted" style="font-size: 10px;">(' . $rLotesVenta[$lv]['Caducidad'] . ')</span>' : '';
+                $badgeCod = '<span class="badge bg-dark text-white font-monospace ms-1" style="font-size: 10px;" title="Código para escanear">' . $codigoLoteFmt . '</span>';
+                $lotesVentaHtml .= '<div class="badge bg-light text-dark border py-1 px-2 text-start" style="font-size: 11px; font-weight: normal; max-width: 100%; white-space: nowrap;">'
+                  . '<i class="fas fa-boxes text-muted me-1"></i><b>' . htmlspecialchars($rLotesVenta[$lv]['Nombre_Lote'], ENT_QUOTES) . '</b> ' . $badgeCod . ': '
+                  . '<span class="cantidad fw-bold">' . $rLotesVenta[$lv]['Cantidad'] . '</span>' . $cadVenta
+                  . '</div>';
+              }
+              $lotesVentaHtml .= '</div>';
+            }
+
             $arreglo['data'][$i] = array(
               'ID' => $row[$i]['ID_Detalle_Venta'],
               'Producto' => $row[$i]['Producto'],
               'Precio' => '<span class="dinero">' . $row[$i]['Precio'] . '</span>',
-              'Cantidad' => '<span class="cantidad">' . $row[$i]['Cantidad'] . '</span>' . ($row[$i]["Devolucion"] > 0 ? '<br><span style="color: #a7090c;">(Dev: <b class="cantidad">' . $row[$i]["Devolucion"] . '</b>)</span>' : ''),
+              'Cantidad' => '<span class="cantidad">' . $row[$i]['Cantidad'] . '</span>' . ($row[$i]["Devolucion"] > 0 ? '<br><span style="color: #a7090c;">(Dev: <b class="cantidad">' . $row[$i]["Devolucion"] . '</b>)</span>' : '') . $lotesVentaHtml,
               'Descuento' => '<span class="dinero">' . $row[$i]['Descuento'] . '</span> (<span class="porcentaje">' . (($row[$i]['Descuento'] / $subDesc) * 100) . '%</span>)',
               'Impuestos' => '<b>SUB: <span class="dinero">' . $subtotal . '</span></b>' . $impuestos,
               'Total' => '<span class="dinero">' . $row[$i]['Total'] . '</span>'
@@ -760,4 +795,31 @@ class Ventas
       }
     }
   }
+
+  private function _verificarTablasLotes($omodelo) {
+    $q1 = "CREATE TABLE IF NOT EXISTS `inventario_lotes` (
+      `ID_Lote` int(11) NOT NULL AUTO_INCREMENT,
+      `FK_Inventario` int(11) NOT NULL,
+      `Nombre_Lote` varchar(100) NOT NULL,
+      `Fecha_Caducidad` date NOT NULL,
+      `Cantidad` double NOT NULL,
+      `Fecha_Registro` datetime NOT NULL,
+      PRIMARY KEY (`ID_Lote`),
+      KEY `FK_Inventario` (`FK_Inventario`),
+      KEY `Fecha_Caducidad` (`Fecha_Caducidad`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=latin1;";
+    $omodelo->_insertar($q1);
+
+    $q2 = "CREATE TABLE IF NOT EXISTS `detalles_ventas_lotes` (
+      `ID_Detalle_Venta_Lote` int(11) NOT NULL AUTO_INCREMENT,
+      `FK_Detalle_Venta` int(11) NOT NULL,
+      `FK_Lote` int(11) NOT NULL,
+      `Cantidad` double NOT NULL,
+      PRIMARY KEY (`ID_Detalle_Venta_Lote`),
+      KEY `FK_Detalle_Venta` (`FK_Detalle_Venta`),
+      KEY `FK_Lote` (`FK_Lote`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=latin1;";
+    $omodelo->_insertar($q2);
+  }
 }
+

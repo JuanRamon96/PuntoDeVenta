@@ -243,6 +243,7 @@ class compras {
 		$tipo = $omodelo->link->real_escape_string($tipo);
 		
 		if($tipo == 'productos'){
+			$this->_verificarTablasLotes($omodelo);
 			$id = $omodelo->link->real_escape_string($id);
 
 			$query = "SELECT ID_Detalle_Compra, FK_Compra, Codigo, detalle_compras.Descripcion AS Descripcion, Foto, detalle_compras.Costo AS Costo, Cantidad, Subtotal FROM detalle_compras LEFT JOIN productos ON FK_Producto = ID_Producto WHERE FK_Compra = '$id'";
@@ -266,11 +267,34 @@ class compras {
 							</a>';
 						}
 
+						$lotesCompraHtml = '';
+						$qLotesCompra = "SELECT dcl.FK_Lote, SUM(dcl.Cantidad) AS Cantidad, IFNULL(l.Nombre_Lote, CONCAT('Lote #', dcl.FK_Lote)) AS Nombre_Lote, DATE_FORMAT(l.Fecha_Caducidad, '%d/%m/%Y') AS Caducidad 
+						                 FROM detalle_compras_lotes dcl 
+						                 LEFT JOIN inventario_lotes l ON dcl.FK_Lote = l.ID_Lote 
+						                 WHERE dcl.FK_Detalle_Compra = '".$row[$i]['ID_Detalle_Compra']."' 
+						                 GROUP BY dcl.FK_Lote, l.Nombre_Lote, l.Fecha_Caducidad
+						                 ORDER BY MIN(dcl.ID_Detalle_Compra_Lote) ASC";
+						$rLotesCompra = $omodelo->_consultar($qLotesCompra);
+						$nLotesCompra = $omodelo->numerofilas;
+						if ($rLotesCompra != 'si' && $nLotesCompra > 0) {
+							$lotesCompraHtml .= '<div class="mt-1 d-flex flex-column align-items-center gap-1">';
+							for ($lc = 0; $lc < $nLotesCompra; $lc++) {
+								$codigoLoteFmt = (!empty($row[$i]['Codigo']) ? $row[$i]['Codigo'] . '_' : '') . $rLotesCompra[$lc]['FK_Lote'];
+								$cadCompra = (!empty($rLotesCompra[$lc]['Caducidad']) && $rLotesCompra[$lc]['Caducidad'] != '00/00/0000') ? ' <span class="text-muted" style="font-size: 10px;">(' . $rLotesCompra[$lc]['Caducidad'] . ')</span>' : '';
+								$badgeCod = '<span class="badge bg-dark text-white font-monospace ms-1" style="font-size: 10px;" title="Código para escanear">' . $codigoLoteFmt . '</span>';
+								$lotesCompraHtml .= '<div class="badge bg-light text-dark border py-1 px-2 text-start" style="font-size: 11px; font-weight: normal; max-width: 100%; white-space: nowrap;">'
+									. '<i class="fas fa-boxes text-muted me-1"></i><b>' . htmlspecialchars($rLotesCompra[$lc]['Nombre_Lote'], ENT_QUOTES) . '</b> ' . $badgeCod . ': '
+									. '<span class="cantidad fw-bold">' . $rLotesCompra[$lc]['Cantidad'] . '</span>' . $cadCompra
+									. '</div>';
+							}
+							$lotesCompraHtml .= '</div>';
+						}
+
 						$tabla .= '<tr>
 							<td>'.$imagen.$row[$i]["Codigo"].'</td>
 							<td>'.$row[$i]["Descripcion"].'</b></td>
 							<td><span class="dinero">'.$row[$i]["Costo"].'</span></td>
-							<td><span class="cantidad">'.$row[$i]["Cantidad"].'</span></td>
+							<td><span class="cantidad">'.$row[$i]["Cantidad"].'</span>' . $lotesCompraHtml . '</td>
 							<td><span class="dinero">'.$row[$i]["Subtotal"].'</span></td>
 						</tr>';
 					}
@@ -392,6 +416,15 @@ class compras {
 							echo "Error 2: ".mysqli_error($omodelo->link);
 						}	
 
+						$qLotesD = "SELECT FK_Lote, Cantidad FROM detalle_compras_lotes WHERE FK_Detalle_Compra = '".$row[$i]['ID_Detalle_Compra']."'";
+						$rLotesD = $omodelo->_consultar($qLotesD);
+						$nLotesD = $omodelo->numerofilas;
+						if ($rLotesD != 'si' && $nLotesD > 0) {
+							for ($ld = 0; $ld < $nLotesD; $ld++) {
+								$omodelo->_insertar("UPDATE inventario_lotes SET Cantidad = GREATEST(0, Cantidad - " . $rLotesD[$ld]['Cantidad'] . ") WHERE ID_Lote = '" . $rLotesD[$ld]['FK_Lote'] . "'");
+							}
+						}
+
 						if($row[$i]['FK_Sucursal'] != '' && $row[$i]['FK_Sucursal'] != 0){
 							$query1 = "UPDATE detalles_inventario SET Cantidad = Cantidad - ".$row[$i]['Cantidad']." WHERE FK_Inventario = IFNULL((SELECT ID_Inventario FROM inventario WHERE FK_Producto = '".$row[$i]['FK_Producto']."'), 0) AND FK_Sucursal = '".$row[$i]['FK_Sucursal']."'";
 							$error = $omodelo->_insertar($query1);
@@ -406,6 +439,32 @@ class compras {
 				echo "Correcto";
 			}
 		}
+	}
+
+	private function _verificarTablasLotes($omodelo) {
+		$q1 = "CREATE TABLE IF NOT EXISTS `inventario_lotes` (
+			`ID_Lote` int(11) NOT NULL AUTO_INCREMENT,
+			`FK_Inventario` int(11) NOT NULL,
+			`Nombre_Lote` varchar(100) NOT NULL,
+			`Fecha_Caducidad` date NOT NULL,
+			`Cantidad` double NOT NULL,
+			`Fecha_Registro` datetime NOT NULL,
+			PRIMARY KEY (`ID_Lote`),
+			KEY `FK_Inventario` (`FK_Inventario`),
+			KEY `Fecha_Caducidad` (`Fecha_Caducidad`)
+		) ENGINE=InnoDB DEFAULT CHARSET=latin1;";
+		$omodelo->_insertar($q1);
+
+		$q3 = "CREATE TABLE IF NOT EXISTS `detalle_compras_lotes` (
+			`ID_Detalle_Compra_Lote` int(11) NOT NULL AUTO_INCREMENT,
+			`FK_Detalle_Compra` int(11) NOT NULL,
+			`FK_Lote` int(11) NOT NULL,
+			`Cantidad` double NOT NULL,
+			PRIMARY KEY (`ID_Detalle_Compra_Lote`),
+			KEY `FK_Detalle_Compra` (`FK_Detalle_Compra`),
+			KEY `FK_Lote` (`FK_Lote`)
+		) ENGINE=InnoDB DEFAULT CHARSET=latin1;";
+		$omodelo->_insertar($q3);
 	}
 }
 ?>

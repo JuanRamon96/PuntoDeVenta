@@ -41,10 +41,25 @@
 
   foreach ($rowDetalles as $detalle) {
     if ($detalle == null) continue;
+    $qLtOrd = "SELECT Nombre_Lote, Cantidad, DATE_FORMAT(Fecha_Caducidad, '%d/%m/%Y') AS Caducidad 
+               FROM detalles_orden_lotes 
+               WHERE FK_Detalle_Orden = '" . $detalle['ID_Detalle_Orden'] . "' 
+               ORDER BY Fecha_Caducidad ASC, ID_Detalle_Orden_Lote ASC";
+    $rLtOrd = $modelo->_consultar($qLtOrd);
+    $txtLt = '';
+    if ($rLtOrd != 'si' && $modelo->numerofilas > 0) {
+      $arrLt = array();
+      for ($lt = 0; $lt < $modelo->numerofilas; $lt++) {
+        $cad = (!empty($rLtOrd[$lt]['Caducidad']) && $rLtOrd[$lt]['Caducidad'] != '00/00/0000') ? ' Cad: ' . $rLtOrd[$lt]['Caducidad'] : '';
+        $arrLt[] = $rLtOrd[$lt]['Nombre_Lote'] . ' (' . (round($rLtOrd[$lt]['Cantidad'] * 100) / 100) . ($cad ? ' - ' . $cad : '') . ')';
+      }
+      $txtLt = '<br><span style="font-size: 11px; font-style: italic;">Lotes: ' . implode(', ', $arrLt) . '</span>';
+    }
+
     $tabla .= '
       <tr>
         <td>'.$detalle['Codigo'].'</td>
-        <td>'.$detalle['Descripcion'].'</td>
+        <td>'.$detalle['Descripcion'] . $txtLt . '</td>
         <td>$'.number_format($detalle['Costo'], 2).'</td>
         <td>'.number_format($detalle['Cantidad'], 2).'</td>
         <td>$'.number_format($detalle['Subtotal'], 2).'</td>

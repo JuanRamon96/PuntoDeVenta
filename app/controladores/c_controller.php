@@ -18,6 +18,7 @@ include "controladores/c_configuracion.php";
 include "controladores/c_cuenta.php";
 include "controladores/c_gastos.php";
 include "controladores/c_clasificaciones.php";
+include "controladores/c_promociones.php";
 include "controladores/c_impuestos.php";
 include "controladores/c_config_facturacion.php";
 include "controladores/c_facturas.php";
@@ -191,6 +192,7 @@ class controller
 			$subMenuTraslados = '';
 			$subMenuConversiones = '';
 			$menuClasificaciones = '';
+			$menuPromociones = '';
 			$menuVentas = '';
 			$menuCajas = '';
 			$menuProveedores = '';
@@ -250,6 +252,12 @@ class controller
 			if ($tipoUsuario == '1' || (isset($permisos['Clasificaciones'][1]) && $permisos['Clasificaciones'][1] == '1')) {
 				$menuClasificaciones = '<li class="nav-item">
 					<a href="javascript:void(0)" class="nav-link cargarVista" carga="v_clasificaciones" titulo="Clasificaciones" id="bMenuClasificacion"><span class="pcoded-micon"><i class="fa-solid fa-layer-group"></i></span><span class="pcoded-mtext">Clasificaciones</span></a>
+				</li>';
+			}
+
+			if ($tipoUsuario == '1' || (isset($permisos['Promociones'][1]) && $permisos['Promociones'][1] == '1')) {
+				$menuPromociones = '<li class="nav-item">
+					<a href="javascript:void(0)" class="nav-link cargarVista" carga="v_promociones" titulo="Promociones" id="bMenuPromociones"><span class="pcoded-micon"><i class="fa-solid fa-tags"></i></span><span class="pcoded-mtext">Promociones</span></a>
 				</li>';
 			}
 
@@ -343,6 +351,7 @@ class controller
 			$pagina = str_replace('#menuProductos#', $menuProductos, $pagina);
 			$pagina = str_replace('#menuInventario#', $menuInventario, $pagina);
 			$pagina = str_replace('#menuClasificaciones#', $menuClasificaciones, $pagina);
+			$pagina = str_replace('#menuPromociones#', $menuPromociones, $pagina);
 			$pagina = str_replace('#menuClientes#', $menuClientes, $pagina);
 			$pagina = str_replace('#menuVentas#', $menuVentas, $pagina);
 			$pagina = str_replace('#menuCajas#', $menuCajas, $pagina);
@@ -452,6 +461,13 @@ class controller
 			$bAgregar = '';
 			if ($_SESSION['user_punto_venta']['Tipo_Usuario'] == 1 || $_SESSION['user_punto_venta']['Permisos']['Clasificaciones'][2] == '1') {
 				$bAgregar = '<button id="bAgregarClasificacion" class="btn btn-danger" type="button">Agregar <i class="fas fa-plus"></i></button>';
+			}
+
+			$pagina = str_replace('#bAgregar#', $bAgregar, $pagina);
+		} else if ($nombre == "v_promociones") {
+			$bAgregar = '';
+			if ($_SESSION['user_punto_venta']['Tipo_Usuario'] == 1 || $_SESSION['user_punto_venta']['Permisos']['Promociones'][2] == '1') {
+				$bAgregar = '<button id="bAgregarPromocion" class="btn btn-danger" type="button">Agregar <i class="fas fa-plus"></i></button>';
 			}
 
 			$pagina = str_replace('#bAgregar#', $bAgregar, $pagina);

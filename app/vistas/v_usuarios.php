@@ -264,6 +264,27 @@
               </td>
             </tr>
             <tr>
+              <td>Promociones</td>
+              <td>
+                <div class="form-check">
+                  <input type="checkbox" class="form-check-input checkPermisos">
+                  <label class="form-check-label">Ver</label>
+                </div>
+                <div class="form-check">
+                  <input type="checkbox" class="form-check-input checkPermisos">
+                  <label class="form-check-label">Agregar</label>
+                </div>
+                <div class="form-check">
+                  <input type="checkbox" class="form-check-input checkPermisos">
+                  <label class="form-check-label">Modificar</label>
+                </div>
+                <div class="form-check">
+                  <input type="checkbox" class="form-check-input checkPermisos">
+                  <label class="form-check-label">Eliminar</label>
+                </div>
+              </td>
+            </tr>
+            <tr>
               <td>Clientes</td>
               <td>
                 <div class="form-check">
