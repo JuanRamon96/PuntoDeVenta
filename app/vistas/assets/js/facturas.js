@@ -580,7 +580,7 @@ function guardarFactura(metodo, timbrar) {
     }
   })
     .done(function (res) {
-      if ($.trim(res) === 'Correcto') {
+      if (String(res ?? '').trim() === 'Correcto') {
         let msg = timbrar === false ? 'Factura guardada correctamente' : 'Factura guardada y timbrada correctamente';
 
         Swal.fire({
@@ -605,7 +605,7 @@ function guardarFactura(metodo, timbrar) {
         //tablaFacturas();
         $("#bRecargarVFacturas").trigger('click');
         $('#modalFactura').modal('hide');
-      } else if ($.trim(res) === 'No hay timbres disponibles') {
+      } else if (String(res ?? '').trim() === 'No hay timbres disponibles') {
         Swal.fire({
           icon: 'error',
           title: 'Error',
@@ -615,7 +615,7 @@ function guardarFactura(metodo, timbrar) {
         Swal.fire({
           icon: 'error',
           title: 'Error',
-          text: 'Error inesperado al guardar la factura: ' + $.trim(res)
+          text: 'Error inesperado al guardar la factura: ' + String(res ?? '').trim()
         });
 
         console.log(res);
@@ -698,8 +698,8 @@ function verDatosFacturacion() {
       $('#carga').show();
     }
   }).done(function (res) {
-    //console.log($.trim(res));
-    var data = JSON.parse($.trim(res));
+    //console.log(String(res ?? '').trim());
+    var data = JSON.parse(String(res ?? '').trim());
     //console.log(data);
 
     $("#nombreEmisor").html(data.Nombre);
@@ -725,8 +725,8 @@ function verConceptosVenta() {
     }
   })
     .done(function (res) {
-      //console.log($.trim(res));
-      $("#tablaConceptos tbody").html($.trim(res));
+      //console.log(String(res ?? '').trim());
+      $("#tablaConceptos tbody").html(String(res ?? '').trim());
       calcularTotalFactura();
     })
     .fail(function () {
@@ -873,7 +873,7 @@ jQuery(document).ready(function ($) {
             $('#carga').show();
           }
         }).done(function (res) {
-          if ($.trim(res) === 'Correcto') {
+          if (String(res ?? '').trim() === 'Correcto') {
             Swal.fire({
               icon: 'success',
               title: 'La factura se ha eliminado correctamente',
@@ -887,7 +887,7 @@ jQuery(document).ready(function ($) {
               text: 'Error inesperado al eliminar la factura.',
             });
 
-            console.log($.trim(res));
+            console.log(String(res ?? '').trim());
           }
         }).fail(function () {
           console.log("Error ajax");
@@ -922,11 +922,11 @@ jQuery(document).ready(function ($) {
         $('#carga').show();
       }
     }).done(function (res) {
-      //console.log($.trim(res));
-      var data = JSON.parse($.trim(res));
+      //console.log(String(res ?? '').trim());
+      var data = JSON.parse(String(res ?? '').trim());
       //console.log(data);
 
-      if ($.trim(data.FK_Venta) != '' && $.trim(data.FK_Venta) != '0') {
+      if (String(data.FK_Venta ?? '').trim() != '' && String(data.FK_Venta ?? '').trim() != '0') {
         $("#folioVentaFacturacion").val(data.FK_Venta);
         $("#folioVentaFacturacion").attr('attrID', data.FK_Venta);
 
@@ -1283,7 +1283,7 @@ jQuery(document).ready(function ($) {
     }
     $("#facturaGlobal").parent().addClass('d-none');
 
-    if ($.trim($(this).children('td:eq(3)').text()).toUpperCase() == 'PUBLICO EN GENERAL') {
+    if (String($(this).children('td:eq(3)').text() ?? '').trim().toUpperCase() == 'PUBLICO EN GENERAL') {
       $("#publicoGeneral").parent().removeClass('d-none');
 
       if (!$("#publicoGeneral").prop('checked')) {

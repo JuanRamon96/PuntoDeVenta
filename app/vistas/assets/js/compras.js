@@ -78,7 +78,7 @@ function eliminarCompra(id) {
 		}
 	})
 		.done(function (res) {
-			if ($.trim(res) == "Correcto") {
+			if (String(res ?? '').trim() == "Correcto") {
 				Swal.fire({
 					icon: 'success',
 					title: 'Compra eliminada correctamente'
@@ -92,7 +92,7 @@ function eliminarCompra(id) {
 					text: 'Error al eliminar la compra'
 				});
 
-				console.log($.trim(res));
+				console.log(String(res ?? '').trim());
 			}
 		})
 		.fail(function () {
@@ -133,7 +133,7 @@ jQuery(document).ready(function ($) {
 					}
 				})
 					.done(function (res) {
-						if ($.trim(res) == "Correcto") {
+						if (String(res ?? '').trim() == "Correcto") {
 							Swal.fire({
 								icon: 'success',
 								title: 'Los productos han sido restados del inventario'
@@ -144,7 +144,7 @@ jQuery(document).ready(function ($) {
 								title: 'Oops...',
 								text: 'Error al restar productos del inventario'
 							});
-							console.log($.trim(res));
+							console.log(String(res ?? '').trim());
 						}
 					})
 					.fail(function () {
@@ -228,7 +228,7 @@ jQuery(document).ready(function ($) {
 					}
 				})
 					.done(function (res) {
-						if ($.trim(res) == "Correcto") {
+						if (String(res ?? '').trim() == "Correcto") {
 							Swal.fire({
 								icon: 'success',
 								title: 'Pago eliminado correctamente'
@@ -243,7 +243,7 @@ jQuery(document).ready(function ($) {
 								text: 'Error inesperado al eliminar el pago.'
 							});
 
-							console.log($.trim(res));
+							console.log(String(res ?? '').trim());
 						}
 					})
 					.fail(function () {
@@ -279,7 +279,7 @@ jQuery(document).ready(function ($) {
 					}
 				})
 					.done(function (res) {
-						if ($.trim(res) == "Correcto") {
+						if (String(res ?? '').trim() == "Correcto") {
 							Swal.fire({
 								icon: 'success',
 								title: 'Compra cancelada correctamente'
@@ -309,7 +309,7 @@ jQuery(document).ready(function ($) {
 										}
 									})
 										.done(function (res) {
-											if ($.trim(res) == "Correcto") {
+											if (String(res ?? '').trim() == "Correcto") {
 												Swal.fire({
 													icon: 'success',
 													title: 'Los productos han sido restados del inventario'
@@ -321,7 +321,7 @@ jQuery(document).ready(function ($) {
 													text: 'Error inesperado al realizar la resta.'
 												});
 
-												console.log($.trim(res));
+												console.log(String(res ?? '').trim());
 											}
 										})
 										.fail(function () {
@@ -339,7 +339,7 @@ jQuery(document).ready(function ($) {
 								text: 'Error inesperado al cancelar la compra.'
 							});
 
-							console.log($.trim(res));
+							console.log(String(res ?? '').trim());
 						}
 					})
 					.fail(function () {
@@ -366,8 +366,8 @@ jQuery(document).ready(function ($) {
 			}
 		})
 			.done(function (res) {
-				//console.log($.trim(res));
-				var datos = JSON.parse($.trim(res));
+				//console.log(String(res ?? '').trim());
+				var datos = JSON.parse(String(res ?? '').trim());
 
 				var restante = (parseFloat(datos.Total) - parseFloat(datos.TotalPagos));
 				$('#totalCompra').text(new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(datos.Total));
@@ -442,7 +442,7 @@ jQuery(document).ready(function ($) {
 						}
 					})
 						.done(function (res) {
-							if ($.trim(res) == "Correcto") {
+							if (String(res ?? '').trim() == "Correcto") {
 								Swal.fire({
 									icon: 'success',
 									title: 'Pago registrado correctamente'
@@ -457,7 +457,7 @@ jQuery(document).ready(function ($) {
 									text: 'Error inesperado al registrar la compra.'
 								});
 
-								console.log($.trim(res));
+								console.log(String(res ?? '').trim());
 							}
 						})
 						.fail(function () {

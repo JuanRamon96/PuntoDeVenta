@@ -37,7 +37,7 @@ function dashCargarResumen() {
 		.done(function (res) {
 			var datos = {};
 			try {
-				datos = JSON.parse($.trim(res)) || {};
+				datos = JSON.parse(String(res ?? '').trim()) || {};
 			} catch (e) {
 				datos = {};
 			}
@@ -71,7 +71,7 @@ function dashCargarVentas() {
 		.done(function (res) {
 			var datos = [];
 			try {
-				datos = JSON.parse($.trim(res)) || [];
+				datos = JSON.parse(String(res ?? '').trim()) || [];
 			} catch (e) {
 				datos = [];
 			}
@@ -105,7 +105,7 @@ function dashCargarProductos() {
 		.done(function (res) {
 			var datos = [];
 			try {
-				datos = JSON.parse($.trim(res)) || [];
+				datos = JSON.parse(String(res ?? '').trim()) || [];
 			} catch (e) {
 				datos = [];
 			}

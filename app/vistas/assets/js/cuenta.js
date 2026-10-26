@@ -29,7 +29,7 @@ function v_cuenta() {
 				}
 			})
 			.done(function(res) {
-				if ($.trim(res) == "Correcto") {
+				if (String(res ?? '').trim() == "Correcto") {
 					Swal.fire({
 					    icon: 'success',
 					    title: 'Los datos fueron modificados correctamente'
@@ -37,13 +37,13 @@ function v_cuenta() {
 
 					$("#bCancelarFotoNegocio").addClass('oculto');
 	    			$("#bModificarFotoNegocio").removeClass('oculto');
-				}else if($.trim(res) == 'Error 2 Formato'){
+				}else if(String(res ?? '').trim() == 'Error 2 Formato'){
 					Swal.fire({
 					    icon: 'warning',
 					    title: 'Oops...',
 					    text: 'El formato de la foto no está permitido, los formatos permitidos son .png, .jpg o .svg.'
 					});
-				}else if($.trim(res) == 'Error 3 Peso') {
+				}else if(String(res ?? '').trim() == 'Error 3 Peso') {
 					Swal.fire({
 					    icon: 'warning',
 					    title: 'Oops...',
@@ -56,7 +56,7 @@ function v_cuenta() {
 					    text: 'Error inesperado al modificar los datos.'
 					});
 
-					console.log($.trim(res));
+					console.log(String(res ?? '').trim());
 				}
 			})
 			.fail(function() {

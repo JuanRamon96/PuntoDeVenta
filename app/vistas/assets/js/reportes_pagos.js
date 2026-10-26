@@ -109,7 +109,7 @@ function initFormAbonoPagos() {
         }
       })
         .done(function (res) {
-          var respuesta = $.trim(res);
+          var respuesta = String(res ?? '').trim();
           if (respuesta === 'Correcto') {
             Swal.fire({
               icon: 'success',
@@ -176,7 +176,7 @@ function resumenAdeudoPagos() {
     }
   })
     .done(function (res) {
-      var datos = JSON.parse($.trim(res));
+      var datos = JSON.parse(String(res ?? '').trim());
       $('#pagosTicketsValor').text(datos.Tickets || '0');
       $('#pagosTotalValor').html(datos.Total || '$0.00');
       $('#pagosAdeudoValor').html(datos.Adeudo || '$0.00');
@@ -250,11 +250,11 @@ function tablaClientesReportePagos() {
 }
 
 function nombreClienteFilaPagos($fila) {
-  var razon = $.trim($fila.children('td:eq(0)').children('b.razon').text());
+  var razon = String($fila.children('td:eq(0)').children('b.razon').text() ?? '').trim();
   if (razon !== '') return razon;
-  var span = $.trim($fila.children('td:eq(0)').children('span').first().text());
+  var span = String($fila.children('td:eq(0)').children('span').first().text() ?? '').trim();
   if (span !== '') return span;
-  return $.trim($fila.children('td:eq(0)').text());
+  return String($fila.children('td:eq(0)').text() ?? '').trim();
 }
 
 function cargarAdeudoClienteAbono(idCliente, nombre) {
@@ -279,7 +279,7 @@ function cargarAdeudoClienteAbono(idCliente, nombre) {
     }
   })
     .done(function (res) {
-      var datos = JSON.parse($.trim(res));
+      var datos = JSON.parse(String(res ?? '').trim());
       adeudoClienteAbono = parseFloat(datos.Adeudo) || 0;
       $('#abonoAdeudoCliente').text(adeudoClienteAbono);
       if (nombre) {
@@ -328,7 +328,7 @@ function cargarCajasAbiertasPagos() {
     .done(function (res) {
       var datos = [];
       try {
-        datos = JSON.parse($.trim(res));
+        datos = JSON.parse(String(res ?? '').trim());
       } catch (e) {
         datos = [];
       }

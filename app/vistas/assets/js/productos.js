@@ -169,7 +169,7 @@ function guardarProducto() {
     }
   })
     .done(function (res) {
-      if ($.trim(res) == "Correcto") {
+      if (String(res ?? '').trim() == "Correcto") {
         if ($('#bGuardarProducto').attr('tipo') === 'modificar') {
           Swal.fire({
             icon: 'success',
@@ -184,19 +184,19 @@ function guardarProducto() {
 
         tablaProductos();
         $('#modalProductos').modal('hide');
-      } else if ($.trim(res) === 'Error 2 formato') {
+      } else if (String(res ?? '').trim() === 'Error 2 formato') {
         Swal.fire({
           icon: 'warning',
           title: 'Oops...',
           text: 'El formato de la foto no está permitido, los formatos permitidos son .png, .jpg o .svg'
         })
-      } else if ($.trim(res) === 'Error 3 peso') {
+      } else if (String(res ?? '').trim() === 'Error 3 peso') {
         Swal.fire({
           icon: 'warning',
           title: 'Oops...',
           text: 'El tamaño de la foto excedió el peso máximo permitido, el peso máximo es de 10MB.'
         })
-      } else if ($.trim(res).includes('Duplicate')) {
+      } else if (String(res ?? '').trim().includes('Duplicate')) {
         Swal.fire({
           icon: 'warning',
           title: 'Oops...',
@@ -216,7 +216,7 @@ function guardarProducto() {
             text: 'Error inesperado para guardar el producto'
           });
         }
-        console.log($.trim(res));
+        console.log(String(res ?? '').trim());
       }
     })
     .fail(function () {
@@ -369,8 +369,8 @@ jQuery(document).ready(function ($) {
       }
     })
       .done(function (res) {
-        //console.log($.trim(res));
-        const datos = JSON.parse($.trim(res));
+        //console.log(String(res ?? '').trim());
+        const datos = JSON.parse(String(res ?? '').trim());
 
         $('#formProductos')[0].reset();
         $('#codigoProducto').val(datos.Codigo);
@@ -460,7 +460,7 @@ jQuery(document).ready(function ($) {
             $('#carga').show();
           }
         }).done(function (res) {
-          if ($.trim(res) === 'Correcto') {
+          if (String(res ?? '').trim() === 'Correcto') {
             Swal.fire({
               icon: 'success',
               title: '¡El producto se ha eliminado correctamente!',
@@ -472,7 +472,7 @@ jQuery(document).ready(function ($) {
               title: 'Oops...',
               text: 'Error inesperado al eliminar el producto',
             });
-            console.log($.trim(res));
+            console.log(String(res ?? '').trim());
           }
         }).fail(function () {
           console.log("Error ajax");
@@ -510,8 +510,8 @@ jQuery(document).ready(function ($) {
       }
     })
       .done(function (res) {
-        //console.log($.trim(res));
-        const datos = JSON.parse($.trim(res));
+        //console.log(String(res ?? '').trim());
+        const datos = JSON.parse(String(res ?? '').trim());
         //console.log(datos);  
 
         datos.forEach((dato) => {

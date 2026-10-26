@@ -89,7 +89,7 @@ function v_inventario() {
             }
           })
             .done(function (res) {
-              if ($.trim(res) === 'Correcto') {
+              if (String(res ?? '').trim() === 'Correcto') {
                 Swal.fire({
                   icon: 'success',
                   title: 'Inventario agregado correctamente'
@@ -104,7 +104,7 @@ function v_inventario() {
                   text: 'Error inesperado al agregar el inventario'
                 });
 
-                console.log($.trim(res));
+                console.log(String(res ?? '').trim());
               }
             })
             .fail(function () {
@@ -160,7 +160,7 @@ function v_inventario() {
             }
           })
             .done(function (res) {
-              if ($.trim(res) === 'Correcto') {
+              if (String(res ?? '').trim() === 'Correcto') {
                 Swal.fire({
                   icon: 'success',
                   title: 'Inventario restado correctamente'
@@ -175,7 +175,7 @@ function v_inventario() {
                   text: 'Error inesperado al restar el inventario'
                 });
 
-                console.log($.trim(res));
+                console.log(String(res ?? '').trim());
               }
             })
             .fail(function () {
@@ -318,7 +318,7 @@ function guardarMerma() {
     }
   })
     .done(function (res) {
-      if ($.trim(res) == "Correcto") {
+      if (String(res ?? '').trim() == "Correcto") {
         if ($('#bGuardarNuevaMerma').attr('tipo') === 'modificarMerma') {
           Swal.fire({
             icon: 'success',
@@ -348,7 +348,7 @@ function guardarMerma() {
             text: 'Error inesperado al guardar la merma.'
           });
         }
-        console.log($.trim(res));
+        console.log(String(res ?? '').trim());
       }
     })
     .fail(function () {
@@ -430,8 +430,8 @@ jQuery(document).ready($ => {
       }
     })
       .done(function (res) {
-        //console.log($.trim(res));
-        const datos = JSON.parse($.trim(res));
+        //console.log(String(res ?? '').trim());
+        const datos = JSON.parse(String(res ?? '').trim());
         //console.log(datos);
 
         $("#fechaMerma").val(datos.Fecha_Merma);
@@ -481,7 +481,7 @@ jQuery(document).ready($ => {
             $('#carga').show();
           }
         }).done(function (res) {
-          if ($.trim(res) === 'Correcto') {
+          if (String(res ?? '').trim() === 'Correcto') {
             Swal.fire({
               icon: 'success',
               title: 'La merma ha sido eliminada correctamente',
@@ -496,7 +496,7 @@ jQuery(document).ready($ => {
               text: 'Error inesperado al eliminar la merma.',
             });
 
-            console.log($.trim(res));
+            console.log(String(res ?? '').trim());
           }
         }).fail(function () {
           console.log("Error ajax");

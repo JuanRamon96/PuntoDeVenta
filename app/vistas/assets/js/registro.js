@@ -71,7 +71,7 @@ jQuery(document).ready(function ($) {
 				}
 			})
 				.done(function (res) {
-					if ($.trim(res) == "Correcto") {
+					if (String(res ?? '').trim() == "Correcto") {
 						setTimeout(function () {
 							$("#mensaAV").html(`<div class="alert alert-success alert-dismissible fade show" role="alert">
 								<i class="fas fa-check-circle"></i> <strong>Cuenta creada correctamente.</strong> Ya puedes ingresar.
@@ -85,7 +85,7 @@ jQuery(document).ready(function ($) {
 							}, 1500);
 						}, 1500);
 					} else {
-						var separa = $.trim(res).split(' ');
+						var separa = String(res ?? '').trim().split(' ');
 						if (separa[2] == 'Duplicate') {
 							setTimeout(function () {
 								$("#mensaAV").html(`<div class="alert alert-warning alert-dismissible fade show" role="alert">
@@ -105,7 +105,7 @@ jQuery(document).ready(function ($) {
 								window.scrollTo({ top: 0, behavior: 'smooth' });
 							}, 1500);
 
-							console.log($.trim(res));
+							console.log(String(res ?? '').trim());
 						}
 					}
 				})

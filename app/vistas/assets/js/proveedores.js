@@ -53,13 +53,13 @@ function v_proveedores() {
 }
 
 function guardarProveedor() {
-  var data = "metodo=" + $("#bGuardarProveedor").attr('tipo') + "&accion=proveedores&razon=" + $.trim($("#razonProveedor").val()) + "&rfc=" + $.trim($("#rfcProveedor").val())
-    + "&telefono=" + $.trim($("#telefonoProveedor").val()) + "&segundoTelefono=" + $.trim($("#segundoTelProveedor").val()) + "&email=" + $.trim($("#emailProveedor").val())
-    + "&credito=" + $("#creditoProveedor").val().replaceAll(",", "") + "&contacto=" + $.trim($("#contactoProveedor").val()) + "&puesto=" + $.trim($("#puestoProveedor").val())
-    + "&telefonoContacto=" + $.trim($("#telefonoContactoProveedor").val()) + "&emailContacto=" + $.trim($("#emailContactoProveedor").val()) + "&calle=" + $.trim($("#calleProveedor").val())
-    + "&noExterior=" + $.trim($("#noExteriorProveedor").val()) + "&noInterior=" + $.trim($("#noInteriorProveedor").val()) + "&colonia=" + $.trim($("#coloniaProveedor").val())
-    + "&cp=" + $.trim($("#cpProveedor").val()) + "&ciudad=" + $.trim($("#ciudadProveedor").val()) + "&estado=" + $.trim($("#estadoProveedor").val()) + "&pais=" + $.trim($("#paisProveedor").val())
-    + "&clabe=" + $.trim($("#clabeProveedor").val()) + "&banco=" + $.trim($("#bancoProveedor").val()) + "&titular=" + $.trim($("#titularProveedor").val()) + "&id=" + $("#bGuardarProveedor").attr('attrID');
+  var data = "metodo=" + $("#bGuardarProveedor").attr('tipo') + "&accion=proveedores&razon=" + String($("#razonProveedor").val() ?? '').trim() + "&rfc=" + String($("#rfcProveedor").val() ?? '').trim()
+    + "&telefono=" + String($("#telefonoProveedor").val() ?? '').trim() + "&segundoTelefono=" + String($("#segundoTelProveedor").val() ?? '').trim() + "&email=" + String($("#emailProveedor").val() ?? '').trim()
+    + "&credito=" + $("#creditoProveedor").val().replaceAll(",", "") + "&contacto=" + String($("#contactoProveedor").val() ?? '').trim() + "&puesto=" + String($("#puestoProveedor").val() ?? '').trim()
+    + "&telefonoContacto=" + String($("#telefonoContactoProveedor").val() ?? '').trim() + "&emailContacto=" + String($("#emailContactoProveedor").val() ?? '').trim() + "&calle=" + String($("#calleProveedor").val() ?? '').trim()
+    + "&noExterior=" + String($("#noExteriorProveedor").val() ?? '').trim() + "&noInterior=" + String($("#noInteriorProveedor").val() ?? '').trim() + "&colonia=" + String($("#coloniaProveedor").val() ?? '').trim()
+    + "&cp=" + String($("#cpProveedor").val() ?? '').trim() + "&ciudad=" + String($("#ciudadProveedor").val() ?? '').trim() + "&estado=" + String($("#estadoProveedor").val() ?? '').trim() + "&pais=" + String($("#paisProveedor").val() ?? '').trim()
+    + "&clabe=" + String($("#clabeProveedor").val() ?? '').trim() + "&banco=" + String($("#bancoProveedor").val() ?? '').trim() + "&titular=" + String($("#titularProveedor").val() ?? '').trim() + "&id=" + $("#bGuardarProveedor").attr('attrID');
 
   $.ajax({
     url: 'index.php',
@@ -70,7 +70,7 @@ function guardarProveedor() {
     }
   })
     .done(function (res) {
-      if ($.trim(res) == "Correcto") {
+      if (String(res ?? '').trim() == "Correcto") {
         if ($('#bGuardarProveedor').attr('tipo') === 'modificar') {
           Swal.fire({
             icon: 'success',
@@ -100,7 +100,7 @@ function guardarProveedor() {
           });
         }
 
-        console.log($.trim(res));
+        console.log(String(res ?? '').trim());
       }
     })
     .fail(function () {
@@ -159,8 +159,8 @@ jQuery(document).ready(function ($) {
       }
     })
       .done(function (res) {
-        //console.log($.trim(res));
-        const datos = JSON.parse($.trim(res));
+        //console.log(String(res ?? '').trim());
+        const datos = JSON.parse(String(res ?? '').trim());
         //console.log(datos);
 
         $("#razonProveedor").val(datos.Razon_Social);
@@ -222,7 +222,7 @@ jQuery(document).ready(function ($) {
             $('#carga').show();
           }
         }).done(function (res) {
-          if ($.trim(res) === 'Correcto') {
+          if (String(res ?? '').trim() === 'Correcto') {
             Swal.fire({
               icon: 'success',
               title: '¡El proveedor se ha eliminado correctamente!',
@@ -236,7 +236,7 @@ jQuery(document).ready(function ($) {
               text: 'Error inesperado al eliminar el proveedor.',
             });
 
-            console.log($.trim(res));
+            console.log(String(res ?? '').trim());
           }
         }).fail(function () {
           console.log("Error ajax");

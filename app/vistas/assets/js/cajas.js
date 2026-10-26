@@ -75,7 +75,7 @@ function v_cajas() {
           $('#carga').show();
         }
       }).done(function(res) {
-        if ($.trim(res) == 'Correcto') {
+        if (String(res ?? '').trim() == 'Correcto') {
           tablaCajas();
           $('#modalAbrirCaja').modal('hide');
           $('#bAbrirCaja').trigger('click');
@@ -86,7 +86,7 @@ function v_cajas() {
             text: 'Error inesperado al abrir la caja.',
           });
 
-          console.log($.trim(res));
+          console.log(String(res ?? '').trim());
         }
       })
       .fail(function() {
@@ -141,8 +141,8 @@ function tablaCajas() {
 }
 
 function guardarCaja() {
-  var data = "metodo="+$('#bGuardarCaja').attr('tipo')+"&accion=cajas&tipo=guardarCaja&idCaja="+$('#bGuardarCaja').attr('attrID')+"&nombreCaja="+$.trim($("#nombreCaja").val())
-  +"&detallesCaja="+$.trim($("#detallesCaja").val())+"&sucursal="+$("#sucursalCaja").val();
+  var data = "metodo="+$('#bGuardarCaja').attr('tipo')+"&accion=cajas&tipo=guardarCaja&idCaja="+$('#bGuardarCaja').attr('attrID')+"&nombreCaja="+String($("#nombreCaja").val() ?? '').trim()
+  +"&detallesCaja="+String($("#detallesCaja").val() ?? '').trim()+"&sucursal="+$("#sucursalCaja").val();
 
   $.ajax({
     url: 'index.php',
@@ -153,7 +153,7 @@ function guardarCaja() {
     }
   })
  .done(function (res) {
-    if ($.trim(res) == 'Correcto') {
+    if (String(res ?? '').trim() == 'Correcto') {
       Swal.fire({
         icon: 'success',
         title: '¡Caja guardada correctamente!',
@@ -168,7 +168,7 @@ function guardarCaja() {
         text: 'Error inesperado al guardar la caja.',
       });
 
-      console.log($.trim(res));
+      console.log(String(res ?? '').trim());
     }
   })
   .fail(function () {
@@ -223,7 +223,7 @@ jQuery(document).ready($ => {
           }
         })
         .done(function(res) {
-          if ($.trim(res)=== 'Correcto') {
+          if (String(res ?? '').trim()=== 'Correcto') {
             Swal.fire({
               icon: 'success',
               title: '¡Caja eliminada correctamente!',
@@ -237,7 +237,7 @@ jQuery(document).ready($ => {
               text: 'Error inesperado al eliminar la caja.',
             });
 
-            console.log($.trim(res));
+            console.log(String(res ?? '').trim());
           }
         })
         .fail(function () {
@@ -275,7 +275,7 @@ jQuery(document).ready($ => {
       }
     })
    .done(function (res) {
-      if ($.trim(res) == 'Correcto') {
+      if (String(res ?? '').trim() == 'Correcto') {
         Swal.fire({
           icon: 'success',
           title: '¡Caja tomada correctamente!',
@@ -290,7 +290,7 @@ jQuery(document).ready($ => {
           text: 'Error inesperado al tomar la caja.',
         });
 
-        console.log($.trim(res));
+        console.log(String(res ?? '').trim());
       }
     })
     .fail(function () {

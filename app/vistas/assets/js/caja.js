@@ -415,8 +415,8 @@ function agregarProdBusqueda(fila) {
 }
 
 function cerrarCaja(imprimir) {
-  var data = "metodo=modificar&accion=caja&tipo=cerrar&idCaja=" + $.trim($('#modalCaja').attr('attrCaja')) 
-  + "&monto=" + $("#montoCorte").val().replaceAll(',', '') + "&fecha_cierre=" + $.trim($("#fechaCierre").attr('fecha'));
+  var data = "metodo=modificar&accion=caja&tipo=cerrar&idCaja=" + String($('#modalCaja').attr('attrCaja') ?? '').trim() 
+  + "&monto=" + $("#montoCorte").val().replaceAll(',', '') + "&fecha_cierre=" + String($("#fechaCierre").attr('fecha') ?? '').trim();
 
   $.ajax({
     url: 'index.php',
@@ -427,7 +427,7 @@ function cerrarCaja(imprimir) {
     }
   })
     .done(function (res) {
-      var separa = $.trim(res).split('~');
+      var separa = String(res ?? '').trim().split('~');
 
       if (separa[0] == 'Correcto') {
         if (imprimir == false) {
@@ -452,7 +452,7 @@ function cerrarCaja(imprimir) {
           text: 'Error inesperado al relizar el corte de caja.'
         });
 
-        console.log($.trim(res));
+        console.log(String(res ?? '').trim());
       }
     })
     .fail(function () {
@@ -578,7 +578,7 @@ function detenerEscanerCaja() {
 }
 
 function aplicarCodigoEscanerCaja(codigo) {
-  codigo = $.trim(String(codigo || ''));
+  codigo = String(String(codigo || '') ?? '').trim();
   if (!codigo || aplicandoCodigoEscanerCaja) return;
 
   aplicandoCodigoEscanerCaja = true;
@@ -857,7 +857,7 @@ function cambiarCaja() {
 }
 
 function verProdTienda(clasificacion) {
-  var data = "metodo=detalles&accion=caja&tipo=prodTienda&idCaja=" + $.trim($('#modalCaja').attr('attrCaja')) + "&clasificacion=" + clasificacion;
+  var data = "metodo=detalles&accion=caja&tipo=prodTienda&idCaja=" + String($('#modalCaja').attr('attrCaja') ?? '').trim() + "&clasificacion=" + clasificacion;
 
   $.ajax({
     url: 'index.php',
@@ -868,9 +868,9 @@ function verProdTienda(clasificacion) {
     }
   })
     .done(function (res) {
-      //console.log($.trim(res));
+      //console.log(String(res ?? '').trim());
 
-      $("#mosProdCajaTienda").html($.trim(res));
+      $("#mosProdCajaTienda").html(String(res ?? '').trim());
       moneda();
     })
     .fail(function () {
@@ -892,9 +892,9 @@ function verClaTienda() {
     }
   })
     .done(function (res) {
-      //console.log($.trim(res));
+      //console.log(String(res ?? '').trim());
 
-      $("#mosProdCajaTienda").html($.trim(res));
+      $("#mosProdCajaTienda").html(String(res ?? '').trim());
     })
     .fail(function () {
       console.log("Error ajax");
@@ -916,8 +916,8 @@ function domicilios(id) {
     data: data
   })
     .done(function (res) {
-      //console.log($.trim(res));
-      $('#domicilioClienteBus').html($.trim(res));
+      //console.log(String(res ?? '').trim());
+      $('#domicilioClienteBus').html(String(res ?? '').trim());
     })
     .fail(function () {
       console.log("Error ajax");
@@ -1193,7 +1193,7 @@ $(document).on('keydown', function (evt) {
         totalPagoCobrar.value = parseFloat(fila.children('td:eq(4)').text().replace('$', '').replaceAll(',', '')).toString();
 
         $('#totalCambio').text(fila.children('td:eq(5)').text());
-        $('#detallesCobrar').val($.trim(fila.children('td:eq(6)').children('p:eq(0)').text()));
+        $('#detallesCobrar').val(String(fila.children('td:eq(6)').children('p:eq(0)').text() ?? '').trim());
 
         moneda();
         $("#bCobrarImprimir").attr('attrID', fila.attr('id'));
@@ -1219,10 +1219,10 @@ jQuery(document).ready(function ($) {
     })
       .done(function (res) {
         //console.log(res);
-        if ($.trim(res) === "No") {
+        if (String(res ?? '').trim() === "No") {
           $('#bMenuCajas').trigger('click');
         } else {
-          const resJson = JSON.parse($.trim(res));
+          const resJson = JSON.parse(String(res ?? '').trim());
           $('#tituloCaja').html(resJson.Nombre);
           $('#modalCaja').attr('attrSucursal', resJson.FK_Sucursal);
           $('#modalCaja').attr('attrCaja', resJson.ID_Caja);
@@ -1332,7 +1332,7 @@ jQuery(document).ready(function ($) {
 
   $(document).on('submit', '#formAgreProd', function (event) {
     event.preventDefault();
-    const data = `metodo=consultar&accion=caja&tipo=agregarProducto&codigo=${$.trim($('#barCodeV').val())}`
+    const data = `metodo=consultar&accion=caja&tipo=agregarProducto&codigo=${String($('#barCodeV').val() ?? '').trim()}`
 
     $.ajax({
       url: 'index.php',
@@ -1343,10 +1343,10 @@ jQuery(document).ready(function ($) {
       },
     })
       .done(function (res) {
-        //console.log($.trim(res));
+        //console.log(String(res ?? '').trim());
         $("#barCodeV").val("");
 
-        if ($.trim(res) === "No encontrado") {
+        if (String(res ?? '').trim() === "No encontrado") {
           $("#noEncontrado").show();
 
           setTimeout(function () {
@@ -1355,7 +1355,7 @@ jQuery(document).ready(function ($) {
 
           audio2.play();
         } else {
-          var resA = JSON.parse($.trim(res));
+          var resA = JSON.parse(String(res ?? '').trim());
           var precio = parseFloat(resA.Precio) || 0;
           var existencia = parseFloat(resA.Existencia) || 0;
           var mayoreo = parseFloat(resA.Precio_Mayoreo) || 0;
@@ -1849,7 +1849,7 @@ jQuery(document).ready(function ($) {
     errorClass: 'is-invalid',
     errorElement: 'div',
     submitHandler: function (form) {
-      const data = `metodo=consultar&accion=caja&tipo=agregarProducto&codigo=${$.trim($('#barCodeIntVatios').val())}`
+      const data = `metodo=consultar&accion=caja&tipo=agregarProducto&codigo=${String($('#barCodeIntVatios').val() ?? '').trim()}`
 
       $.ajax({
         url: 'index.php',
@@ -1859,8 +1859,8 @@ jQuery(document).ready(function ($) {
           $("#carga").show();
         }
       }).done(function (response) {
-        //console.log($.trim(response));
-        if ($.trim(response) === "No encontrado") {
+        //console.log(String(response ?? '').trim());
+        if (String(response ?? '').trim() === "No encontrado") {
           $("#noEncontrado").show();
 
           setTimeout(function () {
@@ -1869,7 +1869,7 @@ jQuery(document).ready(function ($) {
 
           audio2.play();
         } else {
-          const res = JSON.parse($.trim(response));
+          const res = JSON.parse(String(response ?? '').trim());
           const cantidadInput = parseFloat($("#cantidadIntVatios").val().replaceAll(',', '')) || 0;
 
           if (res.Clase === "Pieza" && (cantidadInput % 1) > 0) {
@@ -2099,7 +2099,7 @@ jQuery(document).ready(function ($) {
 
       $("#tablaCaja").children('tbody').prepend(`<tr attrID="0" class="activa">
         <td `+ clase + `>0</td>
-        <td>`+ $.trim($("#descripcionProdComun").val()) + `</td>
+        <td>`+ String($("#descripcionProdComun").val() ?? '').trim() + `</td>
         <td><span class="dinero" attrMayoreo="${$("#precioProdComun").val().replaceAll(",", "")}">` + $("#precioProdComun").val().replaceAll(",", "") + `</span></td>
         <td><span class="cantidad">`+ $("#cantidadProdComun").val().replaceAll(",", "") + `</span></td>
         <td><span class="porcentaje">0</span>(<span class="dinero">0</span>)</td>
@@ -2263,7 +2263,7 @@ jQuery(document).ready(function ($) {
     errorClass: 'is-invalid',
     errorElement: 'div',
     submitHandler: function (form) {
-      var data = `metodo=insertar&accion=caja&tipo=movimiento&tipoMov=Entrada&cajaId=${$.trim($('#modalCaja').attr('attrCaja'))}&cantidad=${$('#montoEntrada').val().replaceAll(',', '')}&descripcion=${$("#descripcionEntrada").val()}`
+      var data = `metodo=insertar&accion=caja&tipo=movimiento&tipoMov=Entrada&cajaId=${String($('#modalCaja').attr('attrCaja') ?? '').trim()}&cantidad=${$('#montoEntrada').val().replaceAll(',', '')}&descripcion=${$("#descripcionEntrada").val()}`
 
       $.ajax({
         url: 'index.php',
@@ -2274,7 +2274,7 @@ jQuery(document).ready(function ($) {
         }
       })
         .done(function (res) {
-          if ($.trim(res) === 'Correcto') {
+          if (String(res ?? '').trim() === 'Correcto') {
             Swal.fire({
               title: 'Correcto',
               text: 'Se ha registrado la entrada',
@@ -2289,7 +2289,7 @@ jQuery(document).ready(function ($) {
               icon: 'error',
             });
 
-            console.log($.trim(res));
+            console.log(String(res ?? '').trim());
           }
         })
         .fail(function () {
@@ -2361,7 +2361,7 @@ jQuery(document).ready(function ($) {
     errorClass: 'is-invalid',
     errorElement: 'div',
     submitHandler: function (form) {
-      const data = `metodo=insertar&accion=caja&tipo=movimiento&tipoMov=Salida&cajaId=${$.trim($('#modalCaja').attr('attrCaja'))}&cantidad=${$('#montoSalida').val().replaceAll(',', '')}&descripcion=${$("#descripcionSalida").val()}`;
+      const data = `metodo=insertar&accion=caja&tipo=movimiento&tipoMov=Salida&cajaId=${String($('#modalCaja').attr('attrCaja') ?? '').trim()}&cantidad=${$('#montoSalida').val().replaceAll(',', '')}&descripcion=${$("#descripcionSalida").val()}`;
 
       $.ajax({
         url: 'index.php',
@@ -2372,7 +2372,7 @@ jQuery(document).ready(function ($) {
         }
       })
         .done(function (res) {
-          if ($.trim(res) === 'Correcto') {
+          if (String(res ?? '').trim() === 'Correcto') {
             Swal.fire({
               title: 'Correcto',
               text: 'Se ha registrado la salida',
@@ -2387,7 +2387,7 @@ jQuery(document).ready(function ($) {
               icon: 'error',
             });
 
-            console.log($.trim(res));
+            console.log(String(res ?? '').trim());
           }
         })
         .fail(function () {
@@ -2749,10 +2749,10 @@ jQuery(document).ready(function ($) {
 
         $('#totalCambio').text(0);
 
-        if ($.trim($("#bAgregarClienteBusN").attr('attrID')) != '') {
-          $("#clienteCobrar").val($.trim($("#bAgregarClienteBusN").children('span:eq(0)').text()));
-          $("#clienteCobrar").attr('attrID', $.trim($("#bAgregarClienteBusN").attr('attrID')));
-          $("#clienteCobrar").attr('attrDireccion', $.trim($("#bAgregarClienteBusN").attr('attrDireccion')));
+        if (String($("#bAgregarClienteBusN").attr('attrID') ?? '').trim() != '') {
+          $("#clienteCobrar").val(String($("#bAgregarClienteBusN").children('span:eq(0)').text() ?? '').trim());
+          $("#clienteCobrar").attr('attrID', String($("#bAgregarClienteBusN").attr('attrID') ?? '').trim());
+          $("#clienteCobrar").attr('attrDireccion', String($("#bAgregarClienteBusN").attr('attrDireccion') ?? '').trim());
         }
 
         moneda();
@@ -2852,10 +2852,10 @@ jQuery(document).ready(function ($) {
 
           procesandoCobro = false;
         } else if ($("#bCobrarImprimir").attr('tipo') == 'pendiente') {
-          var data = "metodo=modificar&accion=caja&tipo=pediente&idCaja=" + $.trim($('#modalCaja').attr('attrCaja'))
-            + "&descuento=" + $("#mosDesGeD").text().replace('$', '').replaceAll(',', '') + "&total=" + $.trim($("#totalCobrar").text().replace('$', '').replace(searchRegExp, ''))
-            + "&tipoPago=" + $("#metodoPago").val() + "&pago=" + $("#totalPagoCobrar").val().replaceAll(',', '') + "&cambio=" + $.trim($("#totalCambio").text().replace('$', '').replace(searchRegExp, ''))
-            + "&detalles=" + $.trim($("#detallesCobrar").val()) + "&cliente=" + $("#clienteCobrar").attr('attrID') + "&idVenta=" + $("#bCobrarImprimir").attr('attrID');
+          var data = "metodo=modificar&accion=caja&tipo=pediente&idCaja=" + String($('#modalCaja').attr('attrCaja') ?? '').trim()
+            + "&descuento=" + $("#mosDesGeD").text().replace('$', '').replaceAll(',', '') + "&total=" + String($("#totalCobrar").text().replace('$', '').replace(searchRegExp, '') ?? '').trim()
+            + "&tipoPago=" + $("#metodoPago").val() + "&pago=" + $("#totalPagoCobrar").val().replaceAll(',', '') + "&cambio=" + String($("#totalCambio").text().replace('$', '').replace(searchRegExp, '') ?? '').trim()
+            + "&detalles=" + String($("#detallesCobrar").val() ?? '').trim() + "&cliente=" + $("#clienteCobrar").attr('attrID') + "&idVenta=" + $("#bCobrarImprimir").attr('attrID');
 
           $.ajax({
             url: 'index.php',
@@ -2866,7 +2866,7 @@ jQuery(document).ready(function ($) {
             }
           })
             .done(function (res) {
-              if ($.trim(res) == 'Correcto') {
+              if (String(res ?? '').trim() == 'Correcto') {
                 if (tipoCobrar == 0) {
                   imprimirTicketCaja('controladores/pdf/ticketAbrir.php');
                 } else {
@@ -2881,7 +2881,7 @@ jQuery(document).ready(function ($) {
                   text: 'Error inesperado al registar la venta.'
                 });
 
-                console.log($.trim(res));
+                console.log(String(res ?? '').trim());
               }
             })
             .fail(function () {
@@ -2941,10 +2941,10 @@ jQuery(document).ready(function ($) {
               numTi = numTicket;
             }
 
-            var data = "metodo=insertar&accion=caja&tipo=venta&idCaja=" + $.trim($('#modalCaja').attr('attrCaja')) + "&descuento=" + $("#mosDesGeD").text().replace('$', '').replaceAll(',', '') 
-            + "&total=" + $.trim($("#totalCobrar").text().replace('$', '').replaceAll(',', '')) + "&tipoPago=" + $("#metodoPago").val() 
-            + "&pago=" + $("#totalPagoCobrar").val().replaceAll(',', '') + "&cambio=" + $.trim($("#totalCambio").text().replace('$', '').replaceAll(',', '')) 
-            + "&cliente=" + $("#clienteCobrar").attr('attrID') + "&fkDireccion=" + $("#clienteCobrar").attr('attrDireccion') + "&detalles=" + $.trim($("#detallesCobrar").val()) 
+            var data = "metodo=insertar&accion=caja&tipo=venta&idCaja=" + String($('#modalCaja').attr('attrCaja') ?? '').trim() + "&descuento=" + $("#mosDesGeD").text().replace('$', '').replaceAll(',', '') 
+            + "&total=" + String($("#totalCobrar").text().replace('$', '').replaceAll(',', '') ?? '').trim() + "&tipoPago=" + $("#metodoPago").val() 
+            + "&pago=" + $("#totalPagoCobrar").val().replaceAll(',', '') + "&cambio=" + String($("#totalCambio").text().replace('$', '').replaceAll(',', '') ?? '').trim() 
+            + "&cliente=" + $("#clienteCobrar").attr('attrID') + "&fkDireccion=" + $("#clienteCobrar").attr('attrDireccion') + "&detalles=" + String($("#detallesCobrar").val() ?? '').trim() 
             + "&productos=" + JSON.stringify(productos) + "&turno=" + numTi;
             
             console.log(data);
@@ -2958,7 +2958,7 @@ jQuery(document).ready(function ($) {
               }
             })
               .done(function (res) {
-                var separa = $.trim(res).split('~');
+                var separa = String(res ?? '').trim().split('~');
                 if (separa[0] == 'Correcto') {
                   if (tipoCobrar == 0) {
                     imprimirTicketCaja('controladores/pdf/ticketAbrir.php');
@@ -3004,7 +3004,7 @@ jQuery(document).ready(function ($) {
                     text: 'Error inesperado al registar la venta.'
                   });
 
-                  console.log($.trim(res));
+                  console.log(String(res ?? '').trim());
                 }
               })
               .fail(function () {
@@ -3047,8 +3047,8 @@ jQuery(document).ready(function ($) {
       }
     })
       .done(function (res) {
-        //console.log($.trim(res));
-        const resA = JSON.parse($.trim(res));
+        //console.log(String(res ?? '').trim());
+        const resA = JSON.parse(String(res ?? '').trim());
         //console.log(resA);
 
         $("#fechaApertura").text(resA.detalles.Fecha_Abrir);
@@ -3277,7 +3277,7 @@ jQuery(document).ready(function ($) {
       }
     })
       .done(function (res) {
-        if ($.trim(res) == "Correcto") {
+        if (String(res ?? '').trim() == "Correcto") {
           document.exitFullscreen();
         } else {
           Swal.fire({
@@ -3286,7 +3286,7 @@ jQuery(document).ready(function ($) {
             text: 'Error inesperado al dejar la caja.'
           });
 
-          console.log($.trim(res));
+          console.log(String(res ?? '').trim());
         }
       })
       .fail(function () {
@@ -3328,7 +3328,7 @@ jQuery(document).ready(function ($) {
     totalPagoCobrar.value = parseFloat($(this).children('td:eq(4)').text().replace('$', '').replace(searchRegExp, '')).toString();
 
     $('#totalCambio').text($(this).children('td:eq(5)').text());
-    $('#detallesCobrar').val($.trim($(this).children('td:eq(6)').children('p:eq(0)').text()));
+    $('#detallesCobrar').val(String($(this).children('td:eq(6)').children('p:eq(0)').text() ?? '').trim());
 
     moneda();
     $("#bCobrarImprimir").attr('attrID', $(this).attr('id'));
@@ -3359,7 +3359,7 @@ jQuery(document).ready(function ($) {
             $("#carga").show();
           }
         }).done(function (res) {
-          if ($.trim(res) == 'Correcto') {
+          if (String(res ?? '').trim() == 'Correcto') {
             Swal.fire({
               icon: 'success',
               title: 'Correcto',
@@ -3374,7 +3374,7 @@ jQuery(document).ready(function ($) {
               text: 'Error inesperado al cancelar la venta.',
             });
 
-            console.log($.trim(res));
+            console.log(String(res ?? '').trim());
           }
         }).fail(function () {
           console.log("Error ajax");
@@ -3407,7 +3407,7 @@ jQuery(document).ready(function ($) {
             $("#carga").show();
           }
         }).done(function (res) {
-          if ($.trim(res) == 'Correcto') {
+          if (String(res ?? '').trim() == 'Correcto') {
             Swal.fire({
               icon: 'success',
               title: 'Correcto',
@@ -3422,7 +3422,7 @@ jQuery(document).ready(function ($) {
               text: 'Error inesperado al quitar el producto.',
             });
 
-            console.log($.trim(res));
+            console.log(String(res ?? '').trim());
           }
         }).fail(function () {
           console.log("Error ajax");
@@ -3435,7 +3435,7 @@ jQuery(document).ready(function ($) {
 
   $(document).on('click', '.bAgregarProductoMas', function () {
     var btn = $(this);
-    const data = "metodo=modificar&accion=caja&tipo=agregar&id=" + btn.attr('attrID') + "&codigo=" + $.trim($("#codigoProdMas").val()) + "&cantidad=" + $("#cantidadProdMas").val() + "&precio=" + $("#precioProdMas").val() + "&descuento=" + $("#descuentoProdMas").val();
+    const data = "metodo=modificar&accion=caja&tipo=agregar&id=" + btn.attr('attrID') + "&codigo=" + String($("#codigoProdMas").val() ?? '').trim() + "&cantidad=" + $("#cantidadProdMas").val() + "&precio=" + $("#precioProdMas").val() + "&descuento=" + $("#descuentoProdMas").val();
 
     $.ajax({
       url: 'index.php',
@@ -3445,7 +3445,7 @@ jQuery(document).ready(function ($) {
         $("#carga").show();
       }
     }).done(function (res) {
-      if ($.trim(res) == 'Correcto') {
+      if (String(res ?? '').trim() == 'Correcto') {
         Swal.fire({
           icon: 'success',
           title: 'Correcto',
@@ -3460,7 +3460,7 @@ jQuery(document).ready(function ($) {
           text: 'Error inesperado al agregar el producto.',
         });
 
-        console.log($.trim(res));
+        console.log(String(res ?? '').trim());
       }
     }).fail(function () {
       console.log("Error ajax");
@@ -3721,7 +3721,7 @@ jQuery(document).ready(function ($) {
     errorClass: 'is-invalid',
     errorElement: 'div',
     submitHandler: function (form) {
-      var data = "metodo=modificar&accion=caja&tipo=cliente&telefono=" + $.trim($("#telefonoClienteBus").val()) + "&nombre=" + $.trim($("#nombreClienteBus").val()) + "&calle=" + $.trim($("#calleClienteBus").val()) + "&noExterior=" + $.trim($("#noExteriorClienteBus").val()) + "&noInterior=" + $.trim($("#noInteriorClienteBus").val()) + "&cp=" + $.trim($("#cpClienteBus").val()) + "&colonia=" + $.trim($("#coloniaClienteBus").val()) + "&ciudad=" + $.trim($("#ciudadClienteBus").val()) + "&estado=" + $.trim($("#estadoClienteBus").val()) + "&pais=" + $.trim($("#paisClienteBus").val()) + "&detalles=" + $.trim($("#detallesClienteBus").val()) + "&idCliente=" + ($("#nombreClienteBus").attr('attrID') || '') + "&idDomicilio=" + ($("#tituloDomiBus").attr('attrID') || '');
+      var data = "metodo=modificar&accion=caja&tipo=cliente&telefono=" + String($("#telefonoClienteBus").val() ?? '').trim() + "&nombre=" + String($("#nombreClienteBus").val() ?? '').trim() + "&calle=" + String($("#calleClienteBus").val() ?? '').trim() + "&noExterior=" + String($("#noExteriorClienteBus").val() ?? '').trim() + "&noInterior=" + String($("#noInteriorClienteBus").val() ?? '').trim() + "&cp=" + String($("#cpClienteBus").val() ?? '').trim() + "&colonia=" + String($("#coloniaClienteBus").val() ?? '').trim() + "&ciudad=" + String($("#ciudadClienteBus").val() ?? '').trim() + "&estado=" + String($("#estadoClienteBus").val() ?? '').trim() + "&pais=" + String($("#paisClienteBus").val() ?? '').trim() + "&detalles=" + String($("#detallesClienteBus").val() ?? '').trim() + "&idCliente=" + ($("#nombreClienteBus").attr('attrID') || '') + "&idDomicilio=" + ($("#tituloDomiBus").attr('attrID') || '');
 
       $.ajax({
         url: 'index.php',
@@ -3732,28 +3732,28 @@ jQuery(document).ready(function ($) {
         }
       })
         .done(function (res) {
-          var separa = $.trim(res).split('~');
+          var separa = String(res ?? '').trim().split('~');
 
           if (separa[0] == "Correcto") {
-            var direccion = $.trim($("#calleClienteBus").val()) + ' #' + $.trim($("#noExteriorClienteBus").val());
+            var direccion = String($("#calleClienteBus").val() ?? '').trim() + ' #' + String($("#noExteriorClienteBus").val() ?? '').trim();
 
-            if ($.trim($("#noInteriorClienteBus").val()) != '') {
-              direccion += ' int.' + $.trim($("#noInteriorClienteBus").val());
+            if (String($("#noInteriorClienteBus").val() ?? '').trim() != '') {
+              direccion += ' int.' + String($("#noInteriorClienteBus").val() ?? '').trim();
             }
 
-            if ($.trim($("#cpClienteBus").val()) != '') {
-              direccion += ', C.P. ' + $.trim($("#cpClienteBus").val());
+            if (String($("#cpClienteBus").val() ?? '').trim() != '') {
+              direccion += ', C.P. ' + String($("#cpClienteBus").val() ?? '').trim();
             }
 
-            if ($.trim($("#coloniaClienteBus").val()) != '') {
-              direccion += ' Col. ' + $.trim($("#coloniaClienteBus").val());
+            if (String($("#coloniaClienteBus").val() ?? '').trim() != '') {
+              direccion += ' Col. ' + String($("#coloniaClienteBus").val() ?? '').trim();
             }
 
-            if ($.trim($("#detallesClienteBus").val()) != '') {
-              direccion += ' Detalles: ' + $.trim($("#detallesClienteBus").val());
+            if (String($("#detallesClienteBus").val() ?? '').trim() != '') {
+              direccion += ' Detalles: ' + String($("#detallesClienteBus").val() ?? '').trim();
             }
 
-            $("#bAgregarClienteBusN").html('<span>' + $.trim($("#nombreClienteBus").val()) + '</span> <i class="fas fa-times"></i><br><span style="font-size: 11px;">' + direccion + '</span>');
+            $("#bAgregarClienteBusN").html('<span>' + String($("#nombreClienteBus").val() ?? '').trim() + '</span> <i class="fas fa-times"></i><br><span style="font-size: 11px;">' + direccion + '</span>');
             $("#bAgregarClienteBusN").attr('attrID', separa[1]);
             $("#bAgregarClienteBusN").attr('attrDireccion', separa[2]);
 
@@ -3769,7 +3769,7 @@ jQuery(document).ready(function ($) {
               text: 'Error inesperado al seleccionar el cliente.'
             });
 
-            console.log($.trim(res));
+            console.log(String(res ?? '').trim());
           }
         })
         .fail(function () {
@@ -3792,7 +3792,7 @@ jQuery(document).ready(function ($) {
   });
 
   $(document).on('focus keyup', '#telefonoClienteBus', function () {
-    if ($.trim($(this).val()) != "" && $(this).attr('readonly') == undefined) {
+    if (String($(this).val() ?? '').trim() != "" && $(this).attr('readonly') == undefined) {
       var data = "metodo=detalles&accion=caja&tipo=buscarTelefono&buscar=" + $(this).val();
 
       $.ajax({
@@ -3801,13 +3801,13 @@ jQuery(document).ready(function ($) {
         data: data
       })
         .done(function (res) {
-          if ($.trim(res) != "") {
+          if (String(res ?? '').trim() != "") {
             $("#telefonosClientesBus").removeClass('oculto');
           } else {
             $("#telefonosClientesBus").addClass('oculto');
           }
 
-          $("#telefonosClientesBus").html($.trim(res));
+          $("#telefonosClientesBus").html(String(res ?? '').trim());
         })
         .fail(function () {
           console.log("Error ajax");
@@ -3864,7 +3864,7 @@ jQuery(document).ready(function ($) {
   });
 
   $(document).on('focus keyup', '#nombreClienteBus', function () {
-    if ($.trim($(this).val()) != "" && $(this).attr('readonly') == undefined) {
+    if (String($(this).val() ?? '').trim() != "" && $(this).attr('readonly') == undefined) {
       var data = "metodo=detalles&accion=caja&tipo=buscarNombre&buscar=" + $(this).val();
 
       $.ajax({
@@ -3873,13 +3873,13 @@ jQuery(document).ready(function ($) {
         data: data
       })
         .done(function (res) {
-          if ($.trim(res) != "") {
+          if (String(res ?? '').trim() != "") {
             $("#nombresClientesBus").removeClass('oculto');
           } else {
             $("#nombresClientesBus").addClass('oculto');
           }
 
-          $("#nombresClientesBus").html($.trim(res));
+          $("#nombresClientesBus").html(String(res ?? '').trim());
         })
         .fail(function () {
           console.log("Error ajax");
@@ -3937,8 +3937,8 @@ jQuery(document).ready(function ($) {
       data: data
     })
       .done(function (res) {
-        //console.log($.trim(res));
-        var datos = JSON.parse($.trim(res));
+        //console.log(String(res ?? '').trim());
+        var datos = JSON.parse(String(res ?? '').trim());
 
         $("#tituloDomiBus").attr('attrID', id);
         $("#calleClienteBus").val(datos.Calle);

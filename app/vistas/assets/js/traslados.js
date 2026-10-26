@@ -77,7 +77,7 @@ function v_traslados() {
       }
     })
     .done(function (res) {
-      if($.trim(res) == "Correcto"){
+      if(String(res ?? '').trim() == "Correcto"){
         if ($('#bGuardarGasto').attr('tipo') === 'modificar') {
           Swal.fire({
             icon: 'success',
@@ -106,7 +106,7 @@ function v_traslados() {
             text: 'Error inesperado al guardar el gasto.'
           });
         }
-        console.log($.trim(res));
+        console.log(String(res ?? '').trim());
       }
     })
     .fail(function () {
@@ -179,8 +179,8 @@ jQuery(document).ready(function ($) {
         }
       })
       .done(function (res) {
-        //console.log($.trim(res));
-        const datos = JSON.parse($.trim(res));
+        //console.log(String(res ?? '').trim());
+        const datos = JSON.parse(String(res ?? '').trim());
         //console.log(datos);
 
         $("#fechaGasto").val(datos.Fecha_Gasto);
@@ -225,7 +225,7 @@ jQuery(document).ready(function ($) {
             $('#carga').show();
           }
         }).done(function (res) {
-          if ($.trim(res) === 'Correcto') {
+          if (String(res ?? '').trim() === 'Correcto') {
             Swal.fire({
               icon: 'success',
               title: '¡El gasto se ha eliminado correctamente!',
@@ -239,7 +239,7 @@ jQuery(document).ready(function ($) {
               text: 'Error inesperado al eliminar el gasto.',
             });
 
-            console.log($.trim(res));
+            console.log(String(res ?? '').trim());
           }
         }).fail(function () {
           console.log("Error ajax");

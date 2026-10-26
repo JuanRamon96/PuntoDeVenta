@@ -87,15 +87,15 @@ function v_clientes() {
         </a>`;
       }
 
-      fila.children('td:eq(0)').text($.trim($('#calleClienteM').val()));
-      fila.children('td:eq(1)').children('span:eq(0)').text($.trim($('#noExteriorClienteM').val()));
-      fila.children('td:eq(1)').children('span:eq(1)').text($.trim($('#noInteriorClienteM').val()));
-      fila.children('td:eq(2)').children('span:eq(0)').text($.trim($('#cpClienteM').val()));
-      fila.children('td:eq(2)').children('span:eq(1)').text($.trim($('#coloniaClienteM').val()));
-      fila.children('td:eq(3)').children('span:eq(0)').text($.trim($('#ciudadClienteM').val()));
-      fila.children('td:eq(3)').children('span:eq(1)').text($.trim($('#estadoClienteM').val()));
-      fila.children('td:eq(3)').children('span:eq(2)').text($.trim($('#paisClienteM').val()));
-      fila.children('td:eq(4)').text($.trim($('#detallesClienteM').val()));
+      fila.children('td:eq(0)').text(String($('#calleClienteM').val() ?? '').trim());
+      fila.children('td:eq(1)').children('span:eq(0)').text(String($('#noExteriorClienteM').val() ?? '').trim());
+      fila.children('td:eq(1)').children('span:eq(1)').text(String($('#noInteriorClienteM').val() ?? '').trim());
+      fila.children('td:eq(2)').children('span:eq(0)').text(String($('#cpClienteM').val() ?? '').trim());
+      fila.children('td:eq(2)').children('span:eq(1)').text(String($('#coloniaClienteM').val() ?? '').trim());
+      fila.children('td:eq(3)').children('span:eq(0)').text(String($('#ciudadClienteM').val() ?? '').trim());
+      fila.children('td:eq(3)').children('span:eq(1)').text(String($('#estadoClienteM').val() ?? '').trim());
+      fila.children('td:eq(3)').children('span:eq(2)').text(String($('#paisClienteM').val() ?? '').trim());
+      fila.children('td:eq(4)').text(String($('#detallesClienteM').val() ?? '').trim());
       fila.children('td:eq(5)').html(googleDire);
       
       $("#modalDireccion").modal("hide");
@@ -123,7 +123,7 @@ function guardarCliente() {
       );
     });
 
-    var data = "metodo="+$("#bGuardarCliente").attr('tipo')+"&accion=clientes&tipoCliente="+$("#tipoCliente").val()+"&nombre="+$.trim($("#nombreCliente").val())+"&primerApellido="+$.trim($("#primerApellidoCliente").val())+"&segundoApellido="+$.trim($("#segundoApellidoCliente").val())+"&sexo="+$("#sexoCliente").val()+"&razonSocial="+$.trim($("#razonSocialCliente").val())+"&rfc="+$.trim($("#rfcCliente").val())+"&regimen="+$("#regimenCliente").val()+"&telefono="+$.trim($("#telefonoCliente").val())+"&segundoTelefono="+$.trim($("#segundoTelCliente").val())+"&email="+$.trim($("#emailCliente").val())+"&calle="+$.trim($("#calleCliente").val())+"&noExterior="+$.trim($("#noExteriorCliente").val())+"&noInterior="+$.trim($("#noInteriorCliente").val())+"&colonia="+$.trim($("#coloniaCliente").val())+"&cp="+$.trim($("#cpCliente").val())+"&ciudad="+$.trim($("#ciudadCliente").val())+"&estado="+$.trim($("#estadoCliente").val())+"&pais="+$.trim($("#paisCliente").val())+"&latitud="+$.trim($("#latitudCliente").val())+"&longitud="+$.trim($("#longitudCliente").val())+"&contacto="+$.trim($("#contactoCliente").val())+"&puesto="+$.trim($("#puestoCliente").val())+"&telContacto="+$.trim($("#telContactoCliente").val())+"&emailContacto="+$.trim($("#emailContactoCliente").val())+"&id="+$("#bGuardarCliente").attr('attrID')+"&direcciones="+JSON.stringify(direcciones);
+    var data = "metodo="+$("#bGuardarCliente").attr('tipo')+"&accion=clientes&tipoCliente="+$("#tipoCliente").val()+"&nombre="+String($("#nombreCliente").val() ?? '').trim()+"&primerApellido="+String($("#primerApellidoCliente").val() ?? '').trim()+"&segundoApellido="+String($("#segundoApellidoCliente").val() ?? '').trim()+"&sexo="+$("#sexoCliente").val()+"&razonSocial="+String($("#razonSocialCliente").val() ?? '').trim()+"&rfc="+String($("#rfcCliente").val() ?? '').trim()+"&regimen="+$("#regimenCliente").val()+"&telefono="+String($("#telefonoCliente").val() ?? '').trim()+"&segundoTelefono="+String($("#segundoTelCliente").val() ?? '').trim()+"&email="+String($("#emailCliente").val() ?? '').trim()+"&calle="+String($("#calleCliente").val() ?? '').trim()+"&noExterior="+String($("#noExteriorCliente").val() ?? '').trim()+"&noInterior="+String($("#noInteriorCliente").val() ?? '').trim()+"&colonia="+String($("#coloniaCliente").val() ?? '').trim()+"&cp="+String($("#cpCliente").val() ?? '').trim()+"&ciudad="+String($("#ciudadCliente").val() ?? '').trim()+"&estado="+String($("#estadoCliente").val() ?? '').trim()+"&pais="+String($("#paisCliente").val() ?? '').trim()+"&latitud="+String($("#latitudCliente").val() ?? '').trim()+"&longitud="+String($("#longitudCliente").val() ?? '').trim()+"&contacto="+String($("#contactoCliente").val() ?? '').trim()+"&puesto="+String($("#puestoCliente").val() ?? '').trim()+"&telContacto="+String($("#telContactoCliente").val() ?? '').trim()+"&emailContacto="+String($("#emailContactoCliente").val() ?? '').trim()+"&id="+$("#bGuardarCliente").attr('attrID')+"&direcciones="+JSON.stringify(direcciones);
 
     $.ajax({
       url: 'index.php',
@@ -134,7 +134,7 @@ function guardarCliente() {
       }
     })
     .done(function (res) {
-      if($.trim(res) == "Correcto"){
+      if(String(res ?? '').trim() == "Correcto"){
         if ($('#bGuardarCliente').attr('tipo') === 'modificar') {
           Swal.fire({
             icon: 'success',
@@ -163,7 +163,7 @@ function guardarCliente() {
             text: 'Error inesperado al guardar el cliente.'
           });
         }
-        console.log($.trim(res));
+        console.log(String(res ?? '').trim());
       }
     })
     .fail(function () {
@@ -272,8 +272,8 @@ jQuery(document).ready(function ($) {
         }
       })
       .done(function (res) {
-        //console.log($.trim(res));
-        const datos = JSON.parse($.trim(res));
+        //console.log(String(res ?? '').trim());
+        const datos = JSON.parse(String(res ?? '').trim());
         //console.log(datos);
         
         $("#tipoCliente").val(datos.Tipo);
@@ -360,7 +360,7 @@ jQuery(document).ready(function ($) {
             $('#carga').show();
           }
         }).done(function (res) {
-          if ($.trim(res) === 'Correcto') {
+          if (String(res ?? '').trim() === 'Correcto') {
             Swal.fire({
               icon: 'success',
               title: '¡El cliente se ha eliminado correctamente!',
@@ -374,7 +374,7 @@ jQuery(document).ready(function ($) {
               text: 'Error inesperado al eliminar el cliente.',
             });
 
-            console.log($.trim(res));
+            console.log(String(res ?? '').trim());
           }
         }).fail(function () {
           console.log("Error ajax");
@@ -388,8 +388,8 @@ jQuery(document).ready(function ($) {
   $(document).on('click', '#bUbicacionClienteP', function() {
     tipoMapa = 0;
     var coordenadas = [20.705399, -102.345097];
-    if($.trim($("#latitudCliente").val()) != '' && $.trim($("#longitudCliente").val()) != ''){
-      coordenadas = [$.trim($("#latitudCliente").val()), $.trim($("#longitudCliente").val())];
+    if(String($("#latitudCliente").val() ?? '').trim() != '' && String($("#longitudCliente").val() ?? '').trim() != ''){
+      coordenadas = [String($("#latitudCliente").val() ?? '').trim(), String($("#longitudCliente").val() ?? '').trim()];
     }
 
     GenerarMapa(coordenadas);
@@ -423,11 +423,11 @@ jQuery(document).ready(function ($) {
     }
 
     $("#verDirecciones").append(`<tr>
-      <td>`+ $.trim($("#calleClienteDire").val()) +`</td>
-      <td><b>No. Exterior:</b> <span>`+ $.trim($("#noExteriorClienteDire").val()) +`</span><br><b>No. Interior:</b> <span>`+ $.trim($("#noInteriorClienteDire").val()) +`</span></td>
-      <td><b>CP: </b><span>`+ $.trim($("#cpClienteDire").val()) +`</span><br><b>Col: </b><span>`+ $.trim($("#coloniaClienteDire").val()) + `</span></td>
-      <td><b>Ciudad: </b><span>`+ $.trim($("#ciudadClienteDire").val()) +`</span><br><b>Estado: </b><span>`+ $.trim($("#estadoClienteDire").val()) +`</span><br><b>País: </b><span>`+ $.trim($("#paisClienteDire").val()) +`</span></td>
-      <td>`+ $.trim($("#detallesClienteDire").val()) +`</td>
+      <td>`+ String($("#calleClienteDire").val() ?? '').trim() +`</td>
+      <td><b>No. Exterior:</b> <span>`+ String($("#noExteriorClienteDire").val() ?? '').trim() +`</span><br><b>No. Interior:</b> <span>`+ String($("#noInteriorClienteDire").val() ?? '').trim() +`</span></td>
+      <td><b>CP: </b><span>`+ String($("#cpClienteDire").val() ?? '').trim() +`</span><br><b>Col: </b><span>`+ String($("#coloniaClienteDire").val() ?? '').trim() + `</span></td>
+      <td><b>Ciudad: </b><span>`+ String($("#ciudadClienteDire").val() ?? '').trim() +`</span><br><b>Estado: </b><span>`+ String($("#estadoClienteDire").val() ?? '').trim() +`</span><br><b>País: </b><span>`+ String($("#paisClienteDire").val() ?? '').trim() +`</span></td>
+      <td>`+ String($("#detallesClienteDire").val() ?? '').trim() +`</td>
       <td>`+ googleDire +`</td>
       <td><button type="button" class="btn btn-warning btn-sm bModificarDireccion"><i class="fas fa-pencil"></i></button> <button type="button" class="btn btn-danger btn-sm bQuitarDireccion"><i class="fas fa-trash"></i></button></td>
     </tr>`);
@@ -467,8 +467,8 @@ jQuery(document).ready(function ($) {
   $(document).on('click', '#bUbicacionDomCli', function() {
     tipoMapa = 1;
     var coordenadas = [20.705399, -102.345097];
-    if($.trim($("#latitudClienteDire").val()) != '' && $.trim($("#longitudClienteDire").val()) != ''){
-      coordenadas = [$.trim($("#latitudClienteDire").val()), $.trim($("#longitudClienteDire").val())];
+    if(String($("#latitudClienteDire").val() ?? '').trim() != '' && String($("#longitudClienteDire").val() ?? '').trim() != ''){
+      coordenadas = [String($("#latitudClienteDire").val() ?? '').trim(), String($("#longitudClienteDire").val() ?? '').trim()];
     }
 
     GenerarMapa(coordenadas);
@@ -483,8 +483,8 @@ jQuery(document).ready(function ($) {
   $(document).on('click', '#bUbicacionClienteM', function() {
     tipoMapa = 2;
     var coordenadas = [20.705399, -102.345097];
-    if($.trim($("#latitudClienteM").val()) != '' && $.trim($("#longitudClienteM").val()) != ''){
-      coordenadas = [$.trim($("#latitudClienteM").val()), $.trim($("#longitudClienteM").val())];
+    if(String($("#latitudClienteM").val() ?? '').trim() != '' && String($("#longitudClienteM").val() ?? '').trim() != ''){
+      coordenadas = [String($("#latitudClienteM").val() ?? '').trim(), String($("#longitudClienteM").val() ?? '').trim()];
     }
 
     GenerarMapa(coordenadas);

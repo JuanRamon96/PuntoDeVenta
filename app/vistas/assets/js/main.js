@@ -92,7 +92,7 @@ jQuery(document).ready(function ($) {
       }
     })
       .done(function (res) {
-        //console.log($.trim(res));
+        //console.log(String(res ?? '').trim());
         $("#verVista").html(res);
         $(".vistaTitulo").html(titulo);
 
@@ -136,7 +136,7 @@ jQuery(document).ready(function ($) {
       }*/
     })
       .done(function (res) {
-        console.log($.trim(res));
+        console.log(String(res ?? '').trim());
         window.location.reload();
       })
       .fail(function () {
@@ -162,7 +162,7 @@ jQuery(document).ready(function ($) {
                   }
               })
               .done(function(res) {
-                  if ($.trim(res) == "Correcto") {
+                  if (String(res ?? '').trim() == "Correcto") {
                       $("#numNoti").addClass('oculto');
                   }else{
                       Swal.fire({
@@ -171,7 +171,7 @@ jQuery(document).ready(function ($) {
                           text: 'Error inesperado al ver las notificaciones.'
                       });
 
-                      console.log($.trim(res));
+                      console.log(String(res ?? '').trim());
                   }
               })
               .fail(function() {
@@ -197,7 +197,7 @@ jQuery(document).ready(function ($) {
           }
       })
       .done(function(res) {
-          if ($.trim(res) == "Correcto") {
+          if (String(res ?? '').trim() == "Correcto") {
               $("#mostrarNoti").html('<h6 style="padding-top: 40%;" class="text-center">No hay notificaciones</h6>');
           }else{
               Swal.fire({
@@ -206,7 +206,7 @@ jQuery(document).ready(function ($) {
                   text: 'Error inesperado al eliminar las notificaciones.'
               });
 
-              console.log($.trim(res));
+              console.log(String(res ?? '').trim());
           }
       })
       .fail(function() {
@@ -229,7 +229,7 @@ jQuery(document).ready(function ($) {
           }
       })
       .done(function(res) {
-          if ($.trim(res) == "Correcto") {
+          if (String(res ?? '').trim() == "Correcto") {
               btn.parent().parent().parent().remove();
 
               if($("#mostrarNoti").children('div').length == 0){
@@ -242,7 +242,7 @@ jQuery(document).ready(function ($) {
                   text: 'Error inesperado al elimnar la notificación.'
               });
 
-              console.log($.trim(res));
+              console.log(String(res ?? '').trim());
           }
       })
       .fail(function() {
@@ -459,7 +459,7 @@ jQuery(document).ready(function ($) {
           }
         })
           .done(function (res) {
-            if ($.trim(res) == "Correcto") {
+            if (String(res ?? '').trim() == "Correcto") {
               Swal.fire({
                 icon: 'success',
                 title: '¡Tu suscripción ha sido renovada correctamente!',
@@ -475,7 +475,7 @@ jQuery(document).ready(function ($) {
                 footer: '¿Por qué tengo este error? Contáctanos en ventastool@bigtool.mx'
               });
 
-              console.log($.trim(res));
+              console.log(String(res ?? '').trim());
             }
           })
           .fail(function () {
@@ -515,7 +515,7 @@ jQuery(document).ready(function ($) {
           }
         })
           .done(function (res) {
-            if ($.trim(res) == "Correcto") {
+            if (String(res ?? '').trim() == "Correcto") {
               Swal.fire({
                 icon: 'success',
                 title: '¡Tu suscripción ha sido renovada correctamente!',
@@ -531,7 +531,7 @@ jQuery(document).ready(function ($) {
                 footer: '¿Por qué tengo este error? Contáctanos en ventastool@bigtool.mx'
               });
 
-              console.log($.trim(res));
+              console.log(String(res ?? '').trim());
             }
           })
           .fail(function () {

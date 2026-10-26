@@ -38,7 +38,7 @@ jQuery(document).ready(function ($) {
 		errorClass: 'is-invalid',
 		errorElement: 'div',
 		submitHandler: function (form) {
-			var data = "accion=login&correo=" + $.trim($("#email").val()) + "&contrasena=" + $("#pass").val();
+			var data = "accion=login&correo=" + String($("#email").val() ?? '').trim() + "&contrasena=" + $("#pass").val();
 
 			$.ajax({
 				url: 'index.php',
@@ -55,7 +55,7 @@ jQuery(document).ready(function ($) {
 				}
 			})
 				.done(function (res) {
-					if ($.trim(res) == "Correcto") {
+					if (String(res ?? '').trim() == "Correcto") {
 						setTimeout(function () {
 							$("#mensaAV").html(`<div class="alert alert-success alert-dismissible fade show" role="alert">
 								<i class="fas fa-check-circle"></i> <strong>Accediendo . . .</strong>
@@ -73,14 +73,14 @@ jQuery(document).ready(function ($) {
 								<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
 							</div>`);
 						}, 1500);
-					} else if ($.trim(res) == "0") {
+					} else if (String(res ?? '').trim() == "0") {
 						setTimeout(function () {
 							$("#mensaAV").html(`<div class="alert alert-danger alert-dismissible fade show" role="alert">
 								<i class="fas fa-exclamation-triangle"></i> <strong>Usuario o contraseña incorrectos.</strong>
 								<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
 							</div>`);
 						}, 1500);
-					} else if ($.trim(res) == "Supero Intentos") {
+					} else if (String(res ?? '').trim() == "Supero Intentos") {
 						setTimeout(function () {
 							$("#mensaAV").html(`<div class="alert alert-warning alert-dismissible fade show" role="alert">
 								<i class="fas fa-exclamation-triangle"></i> <strong>Superaste el número de intentos.</strong> Espera 15 minutos y vuelve a intentar.
@@ -95,7 +95,7 @@ jQuery(document).ready(function ($) {
 							</div>`);
 						}, 1500);
 
-						console.log($.trim(res));
+						console.log(String(res ?? '').trim());
 					}
 				})
 				.fail(function () {
@@ -126,7 +126,7 @@ jQuery(document).ready(function ($) {
 		errorClass: 'is-invalid',
 		errorElement: 'div',
 		submitHandler: function (form) {
-			var data = "accion=olvido&correo=" + $.trim($("#reEmail").val());
+			var data = "accion=olvido&correo=" + String($("#reEmail").val() ?? '').trim();
 
 			$.ajax({
 				url: 'index.php',
@@ -139,7 +139,7 @@ jQuery(document).ready(function ($) {
 				}
 			})
 				.done(function (res) {
-					if ($.trim(res) == "Correcto") {
+					if (String(res ?? '').trim() == "Correcto") {
 						Swal.fire({
 							icon: 'success',
 							title: 'Se ha cambiado tu contraseña a una temporal',
@@ -149,7 +149,7 @@ jQuery(document).ready(function ($) {
 
 						document.getElementById("formReContra").reset();
 						$("#modalOlvidoContra").modal('hide');
-					} else if ($.trim(res) == "Error 3 No existe") {
+					} else if (String(res ?? '').trim() == "Error 3 No existe") {
 						Swal.fire({
 							icon: 'warning',
 							title: 'Oops...',
@@ -165,7 +165,7 @@ jQuery(document).ready(function ($) {
 							text: 'Error inesperado al recuperar tu contraseña.',
 							footer: '¿Por qué tengo este error? Contáctanos en ventastool@bigtool.mx'
 						});
-						console.log($.trim(res));
+						console.log(String(res ?? '').trim());
 					}
 				})
 				.fail(function () {

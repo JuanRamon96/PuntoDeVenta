@@ -43,7 +43,7 @@ jQuery(document).ready(function($) {
                     }
                 })
                 .done(function(res) {
-                    if($.trim(res) == "Correcto"){
+                    if(String(res ?? '').trim() == "Correcto"){
                         Swal.fire({
                             icon: 'success',
                             title: '¡Tu contraseña ha sido cambiada correctamente!'
@@ -58,7 +58,7 @@ jQuery(document).ready(function($) {
                             footer: '¿Por qué tengo este error? Contáctanos en dentastool@gmail.com'
                         });
                         
-                        console.log($.trim(res));
+                        console.log(String(res ?? '').trim());
                     }
                 })
                 .fail(function() {

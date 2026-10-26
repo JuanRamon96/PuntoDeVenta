@@ -11,8 +11,8 @@ jQuery(document).ready(function($) {
             }*/
         })
         .done(function(res) {
-            //console.log($.trim(res));
-            var resA = jQuery.parseJSON(res);
+            //console.log(String(res ?? '').trim());
+            var resA = JSON.parse(res);
 
             resA.forEach(noti => {
             	if(noti.FK_Usuario == $("#bUsuario").attr('attrID')){

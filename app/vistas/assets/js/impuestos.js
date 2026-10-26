@@ -52,7 +52,7 @@ function v_impuestos() {
         }
       })
         .done(function (res) {
-          if ($.trim(res) == "Correcto") {
+          if (String(res ?? '').trim() == "Correcto") {
             if ($("#GuardarImpuesto").attr("tipo") == "modificar") {
               var tipoAlerta = "modificado";
             } else {
@@ -72,7 +72,7 @@ function v_impuestos() {
               title: 'Oops...',
               text: 'Error inesperado al ' + $("#GuardarImpuesto").attr("tipo") + ' impuesto.'
             });
-            console.log($.trim(res));
+            console.log(String(res ?? '').trim());
           }
         })
         .fail(function () {
@@ -140,7 +140,7 @@ jQuery(document).ready($ => {
           }
         })
           .done(function (res) {
-            if ($.trim(res) == "Correcto") {
+            if (String(res ?? '').trim() == "Correcto") {
               Swal.fire({
                 icon: 'success',
                 title: 'Impuesto eliminado correctamente'
@@ -184,7 +184,7 @@ jQuery(document).ready($ => {
     })
       .done(function (res) {
         //console.log(res);
-        var datos = JSON.parse($.trim(res));
+        var datos = JSON.parse(String(res ?? '').trim());
 
         $("#NombreImpuesto").val(datos.Nombre);
         $("#ClaveImpuesto").val(datos.Clave);

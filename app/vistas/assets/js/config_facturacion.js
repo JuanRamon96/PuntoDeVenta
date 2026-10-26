@@ -40,7 +40,7 @@ function v_config_facturacion() {
         }
       })
         .done(function (res) {
-          if ($.trim(res) == "Correcto") {
+          if (String(res ?? '').trim() == "Correcto") {
             Swal.fire({
               icon: 'success',
               title: 'Los datos han sido guardados correctamente'
@@ -49,25 +49,25 @@ function v_config_facturacion() {
             $("#contraFacturacion").val("");
             $("#certificadoFacturacion").val("");
             $("#keyFacturacion").val("");
-          } else if ($.trim(res) == 'Error 2 Formato') {
+          } else if (String(res ?? '').trim() == 'Error 2 Formato') {
             Swal.fire({
               icon: 'warning',
               title: 'Oops...',
               text: 'El formato del certificado no está permitido, el formato permitido es .cer'
             });
-          } else if ($.trim(res) == 'Error 3 Peso') {
+          } else if (String(res ?? '').trim() == 'Error 3 Peso') {
             Swal.fire({
               icon: 'warning',
               title: 'Oops...',
               text: 'El tamaño del certificado excedió el peso máximo permitido, el peso máximo es de 10MB.'
             });
-          } else if ($.trim(res) == 'Error 4 Formato') {
+          } else if (String(res ?? '').trim() == 'Error 4 Formato') {
             Swal.fire({
               icon: 'warning',
               title: 'Oops...',
               text: 'El formato de la key no está permitido, el formato permitido es .key'
             });
-          } else if ($.trim(res) == 'Error 5 Peso') {
+          } else if (String(res ?? '').trim() == 'Error 5 Peso') {
             Swal.fire({
               icon: 'warning',
               title: 'Oops...',
@@ -80,7 +80,7 @@ function v_config_facturacion() {
               text: 'Error inesperado al guardar los datos.'
             });
 
-            console.log($.trim(res));
+            console.log(String(res ?? '').trim());
           }
         })
         .fail(function () {

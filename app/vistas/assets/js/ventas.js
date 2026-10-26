@@ -108,7 +108,7 @@ function v_ventas() {
           $("#carga").show();
         }
       }).done(function (res) {
-        if ($.trim(res) == 'Correcto') {
+        if (String(res ?? '').trim() == 'Correcto') {
           Swal.fire({
             icon: 'success',
             title: 'Correcto',
@@ -117,13 +117,13 @@ function v_ventas() {
 
           tablaVentas();
           $("#modalPagoVenta").modal('hide');
-        } else if ($.trim(res) === 'Error 2 formato') {
+        } else if (String(res ?? '').trim() === 'Error 2 formato') {
           Swal.fire({
             icon: 'warning',
             title: 'Oops...',
             text: 'El formato de la foto no está permitido, los formatos permitidos son .png, .jpg, .svg o pdf'
           });
-        } else if ($.trim(res) === 'Error 3 peso') {
+        } else if (String(res ?? '').trim() === 'Error 3 peso') {
           Swal.fire({
             icon: 'warning',
             title: 'Oops...',
@@ -136,7 +136,7 @@ function v_ventas() {
             text: 'Error inesperado al guaradar el pago.',
           });
 
-          console.log($.trim(res));
+          console.log(String(res ?? '').trim());
         }
       }).fail(function () {
         console.log("Error ajax");
@@ -341,7 +341,7 @@ $(document).ready(function () {
               $("#carga").show();
             }
           }).done(function (res) {
-            if ($.trim(res) == 'Correcto') {
+            if (String(res ?? '').trim() == 'Correcto') {
               Swal.fire({
                 icon: 'success',
                 title: 'Correcto',
@@ -356,7 +356,7 @@ $(document).ready(function () {
                 text: 'Error inesperado al cancelar la venta.',
               });
 
-              console.log($.trim(res));
+              console.log(String(res ?? '').trim());
             }
           }).fail(function () {
             console.log("Error ajax");
@@ -391,7 +391,7 @@ $(document).ready(function () {
             $("#carga").show();
           },
         }).done(function (res) {
-          if ($.trim(res) == 'Correcto') {
+          if (String(res ?? '').trim() == 'Correcto') {
             Swal.fire({
               icon: 'success',
               title: 'Correcto',
@@ -406,7 +406,7 @@ $(document).ready(function () {
               text: 'Error inesperado al eliminar la venta.',
             });
 
-            console.log($.trim(res));
+            console.log(String(res ?? '').trim());
           }
         }).fail(function () {
           console.log("Error ajax");
@@ -433,8 +433,8 @@ $(document).ready(function () {
         $("#carga").show();
       },
     }).done(function (res) {
-      //console.log($.trim(res));
-      var datos = JSON.parse($.trim(res));
+      //console.log(String(res ?? '').trim());
+      var datos = JSON.parse(String(res ?? '').trim());
       //console.log(datos);
 
       $("#totalVentaPago").html(datos.Total);
@@ -486,7 +486,7 @@ $(document).ready(function () {
           }
         })
           .done(function (res) {
-            if ($.trim(res) == "Correcto") {
+            if (String(res ?? '').trim() == "Correcto") {
               Swal.fire({
                 icon: 'success',
                 title: 'Pago eliminado correctamente'
@@ -501,7 +501,7 @@ $(document).ready(function () {
                 text: 'Error inesperado al eliminar el pago.'
               });
 
-              console.log($.trim(res));
+              console.log(String(res ?? '').trim());
             }
           })
           .fail(function () {
@@ -538,7 +538,7 @@ $(document).ready(function () {
       }
     })
       .done(function (res) {
-        $("#tablaDevoluciones").children('tbody').html($.trim(res));
+        $("#tablaDevoluciones").children('tbody').html(String(res ?? '').trim());
 
         moneda();
         $('#modalDevoluciones').modal('show');
@@ -580,7 +580,7 @@ $(document).ready(function () {
       }
     })
       .done(function (res) {
-        if ($.trim(res) == "Correcto") {
+        if (String(res ?? '').trim() == "Correcto") {
           Swal.fire({
             icon: 'success',
             title: 'Las devoluciones han sido guardadas correctamente'
@@ -595,7 +595,7 @@ $(document).ready(function () {
             text: 'Error inesperado al guardar las devoluciones.'
           });
 
-          console.log($.trim(res));
+          console.log(String(res ?? '').trim());
         }
       })
       .fail(function () {
@@ -620,8 +620,8 @@ $(document).ready(function () {
         $("#carga").show();
       }
     }).done(function (res) {
-      //console.log($.trim(res));
-      var datos = JSON.parse($.trim(res));
+      //console.log(String(res ?? '').trim());
+      var datos = JSON.parse(String(res ?? '').trim());
       //console.log(datos);
 
       if (datos.FK_Cliente != 0) {
@@ -863,7 +863,7 @@ $(document).ready(function () {
 
   $(document).on('submit', '#formProdModiVen', function (event) {
     event.preventDefault();
-    const data = 'metodo=consultar&accion=caja&tipo=agregarProducto&codigo=' + $.trim($('#codigoProdModiVen').val());
+    const data = 'metodo=consultar&accion=caja&tipo=agregarProducto&codigo=' + String($('#codigoProdModiVen').val() ?? '').trim();
 
     $.ajax({
       url: 'index.php',
@@ -874,10 +874,10 @@ $(document).ready(function () {
       },
     })
       .done(function (res) {
-        //console.log($.trim(res));
+        //console.log(String(res ?? '').trim());
         $("#barCodeV").val("");
 
-        if ($.trim(res) === "No encontrado") {
+        if (String(res ?? '').trim() === "No encontrado") {
           $("#noEncontrado").show();
           audio2.play();
 
@@ -885,7 +885,7 @@ $(document).ready(function () {
             $("#noEncontrado").hide();
           }, 1000);
         } else {
-          var resA = JSON.parse($.trim(res));
+          var resA = JSON.parse(String(res ?? '').trim());
           var precio = parseFloat(resA.Precio) || 0;
           let impuestos = resA.Impuestos;
           var padre = $("#tablaModiVenta").children('tbody').children('tr[attrID=' + resA.ID_Producto + ']');
@@ -1188,7 +1188,7 @@ $(document).ready(function () {
   $(document).on('click', '#tablaClienteModiVen tbody tr', function () {
     var separa = $(this).children('td:eq(0)').html().split('<br>');
 
-    $("#clienteModiVen").val($.trim(separa[0]));
+    $("#clienteModiVen").val(String(separa[0] ?? '').trim());
     $("#clienteModiVen").attr('attrID', $(this).attr('id'));
     $("#modalClienteModiVen").modal('hide');
   });
@@ -1243,7 +1243,7 @@ $(document).ready(function () {
           var datos = "metodo=detalles&accion=ventas&tipo=modificarVenta&cliente=" + $("#clienteModiVen").attr('attrID') 
           + "&descuento=" + $("#cantidadDescuentoModiVenta").val().replaceAll(',', '') + "&total=" + $("#totalModiVenta").text().replace('$', '').replaceAll(',', '') 
           + "&pago=" + $('#pagoModiVenta').val().replaceAll(',', '') + "&cambio=" + $("#cambioModiVen").text().replace('$', '').replaceAll(',', '') 
-          + "&tipoPago=" + $('#metodoPagoModiVenta').val() + "&detalles=" + $.trim($('#detallesModiVenta').val()) 
+          + "&tipoPago=" + $('#metodoPagoModiVenta').val() + "&detalles=" + String($('#detallesModiVenta').val() ?? '').trim() 
           + "&id=" + btn.attr('attrID') + "&productos=" + JSON.stringify(productos);
 
           $.ajax({
@@ -1254,7 +1254,7 @@ $(document).ready(function () {
               $("#carga").show();
             }
           }).done(function (res) {
-            if ($.trim(res) == 'Correcto') {
+            if (String(res ?? '').trim() == 'Correcto') {
               Swal.fire({
                 icon: 'success',
                 title: 'Correcto',
@@ -1270,7 +1270,7 @@ $(document).ready(function () {
                 text: 'Error inesperado al modificar la venta.',
               });
 
-              console.log($.trim(res));
+              console.log(String(res ?? '').trim());
             }
           }).fail(function () {
             console.log("Error ajax");

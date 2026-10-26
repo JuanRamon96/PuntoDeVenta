@@ -42,7 +42,7 @@ function totalGastos() {
 			}
 		})
 			.done(function (res) {
-				var datos = JSON.parse($.trim(res));
+				var datos = JSON.parse(String(res ?? '').trim());
 
 				$("#totalGastosValor").html(datos.TotalGastos);
 				$("#gananciaVentasValor").html(datos.GananciaVentas);
@@ -87,8 +87,8 @@ function chartProductos() {
 			}
 		})
 			.done(function (res) {
-				//console.log($.trim(res));
-				datos = JSON.parse($.trim(res));
+				//console.log(String(res ?? '').trim());
+				datos = JSON.parse(String(res ?? '').trim());
 				//console.log(datos);
 
 				am5.ready(function () {
@@ -212,8 +212,8 @@ function chartVentas() {
 		}
 	})
 		.done(function (res) {
-			//console.log($.trim(res));
-			datos = JSON.parse($.trim(res));
+			//console.log(String(res ?? '').trim());
+			datos = JSON.parse(String(res ?? '').trim());
 			//console.log(datos);
 
 			am5.ready(function () {

@@ -37,7 +37,7 @@ function v_sucursales() {
 }
 
 function guardarSucursal() {
-  var data = "metodo=" + $("#bGuardarSucursal").attr('tipo') + "&accion=sucursales&nombre=" + $.trim($("#nombreSucursal").val()) + "&telefono=" + $.trim($("#telefonoSucursal").val()) + "&segundoTelefono=" + $.trim($("#segundoTelSucursal").val()) + "&email=" + $.trim($("#emailSucursal").val()) + "&calle=" + $.trim($("#calleSucursal").val()) + "&noExterior=" + $.trim($("#noExteriorSucursal").val()) + "&noInterior=" + $.trim($("#noInteriorSucursal").val()) + "&colonia=" + $.trim($("#coloniaSucursal").val()) + "&cp=" + $.trim($("#cpSucursal").val()) + "&ciudad=" + $.trim($("#ciudadSucursal").val()) + "&estado=" + $.trim($("#estadoSucursal").val()) + "&pais=" + $.trim($("#paisSucursal").val()) + "&latitud=" + $.trim($("#latitudSucursal").val()) + "&longitud=" + $.trim($("#longitudSucursal").val()) + "&id=" + $("#bGuardarSucursal").attr('attrID');
+  var data = "metodo=" + $("#bGuardarSucursal").attr('tipo') + "&accion=sucursales&nombre=" + String($("#nombreSucursal").val() ?? '').trim() + "&telefono=" + String($("#telefonoSucursal").val() ?? '').trim() + "&segundoTelefono=" + String($("#segundoTelSucursal").val() ?? '').trim() + "&email=" + String($("#emailSucursal").val() ?? '').trim() + "&calle=" + String($("#calleSucursal").val() ?? '').trim() + "&noExterior=" + String($("#noExteriorSucursal").val() ?? '').trim() + "&noInterior=" + String($("#noInteriorSucursal").val() ?? '').trim() + "&colonia=" + String($("#coloniaSucursal").val() ?? '').trim() + "&cp=" + String($("#cpSucursal").val() ?? '').trim() + "&ciudad=" + String($("#ciudadSucursal").val() ?? '').trim() + "&estado=" + String($("#estadoSucursal").val() ?? '').trim() + "&pais=" + String($("#paisSucursal").val() ?? '').trim() + "&latitud=" + String($("#latitudSucursal").val() ?? '').trim() + "&longitud=" + String($("#longitudSucursal").val() ?? '').trim() + "&id=" + $("#bGuardarSucursal").attr('attrID');
 
   $.ajax({
     url: 'index.php',
@@ -48,7 +48,7 @@ function guardarSucursal() {
     }
   })
     .done(function (res) {
-      if ($.trim(res) == "Correcto") {
+      if (String(res ?? '').trim() == "Correcto") {
         if ($('#bGuardarSucursal').attr('tipo') === 'modificar') {
           Swal.fire({
             icon: 'success',
@@ -77,7 +77,7 @@ function guardarSucursal() {
             text: 'Error inesperado al guardar la sucursal.'
           });
         }
-        console.log($.trim(res));
+        console.log(String(res ?? '').trim());
       }
     })
     .fail(function () {
@@ -119,16 +119,16 @@ jQuery(document).ready(function ($) {
   });
 
   $(document).on('change keyup', '#latitudSucursal', function () {
-    if ($.trim($(this).val()) != "" && $.trim($("#longitudSucursal").val()) != "") {
-      $("#mapaSucu").html('<iframe id="iframeUbicacion" src="http://maps.google.com/maps?q=' + $.trim($(this).val()) + ', ' + $.trim($("#longitudSucursal").val()) + '&z=15&output=embed" width="100%" height="500" allowfullscreen="" loading="lazy"></iframe>');
+    if (String($(this).val() ?? '').trim() != "" && String($("#longitudSucursal").val() ?? '').trim() != "") {
+      $("#mapaSucu").html('<iframe id="iframeUbicacion" src="http://maps.google.com/maps?q=' + String($(this).val() ?? '').trim() + ', ' + String($("#longitudSucursal").val() ?? '').trim() + '&z=15&output=embed" width="100%" height="500" allowfullscreen="" loading="lazy"></iframe>');
     } else {
       $("#mapaSucu").html('');
     }
   });
 
   $(document).on('change keyup', '#longitudSucursal', function () {
-    if ($.trim($(this).val()) != "" && $.trim($("#latitudSucursal").val()) != "") {
-      $("#mapaSucu").html('<iframe id="iframeUbicacion" src="http://maps.google.com/maps?q=' + $.trim($("#latitudSucursal").val()) + ', ' + $.trim($(this).val()) + '&z=15&output=embed" width="100%" height="500" allowfullscreen="" loading="lazy"></iframe>');
+    if (String($(this).val() ?? '').trim() != "" && String($("#latitudSucursal").val() ?? '').trim() != "") {
+      $("#mapaSucu").html('<iframe id="iframeUbicacion" src="http://maps.google.com/maps?q=' + String($("#latitudSucursal").val() ?? '').trim() + ', ' + String($(this).val() ?? '').trim() + '&z=15&output=embed" width="100%" height="500" allowfullscreen="" loading="lazy"></iframe>');
     } else {
       $("#mapaSucu").html('');
     }
@@ -149,8 +149,8 @@ jQuery(document).ready(function ($) {
       }
     })
       .done(function (res) {
-        //console.log($.trim(res));
-        const datos = JSON.parse($.trim(res));
+        //console.log(String(res ?? '').trim());
+        const datos = JSON.parse(String(res ?? '').trim());
         //console.log(datos);
 
         $("#nombreSucursal").val(datos.Nombre);
@@ -168,8 +168,8 @@ jQuery(document).ready(function ($) {
         $("#latitudSucursal").val(datos.Latitud);
         $("#longitudSucursal").val(datos.Longitud);
 
-        if ($.trim(datos.Latitud) != "" && $.trim(datos.Longitud) != "") {
-          $("#mapaSucu").html('<iframe id="iframeUbicacion" src="http://maps.google.com/maps?q=' + $.trim(datos.Latitud) + ', ' + $.trim(datos.Longitud) + '&z=15&output=embed" width="100%" height="500" allowfullscreen="" loading="lazy"></iframe>');
+        if (String(datos.Latitud ?? '').trim() != "" && String(datos.Longitud ?? '').trim() != "") {
+          $("#mapaSucu").html('<iframe id="iframeUbicacion" src="http://maps.google.com/maps?q=' + String(datos.Latitud ?? '').trim() + ', ' + String(datos.Longitud ?? '').trim() + '&z=15&output=embed" width="100%" height="500" allowfullscreen="" loading="lazy"></iframe>');
         }
 
         $('#bGuardarSucursal').attr('tipo', 'modificar');
@@ -206,7 +206,7 @@ jQuery(document).ready(function ($) {
             $('#carga').show();
           }
         }).done(function (res) {
-          if ($.trim(res) === 'Correcto') {
+          if (String(res ?? '').trim() === 'Correcto') {
             Swal.fire({
               icon: 'success',
               title: '¡La sucursal se ha eliminado correctamente!',
@@ -218,7 +218,7 @@ jQuery(document).ready(function ($) {
               title: 'Oops...',
               text: 'Error inesperado al eliminar la sucursal.',
             });
-            console.log($.trim(res));
+            console.log(String(res ?? '').trim());
           }
         }).fail(function () {
           console.log("Error ajax");

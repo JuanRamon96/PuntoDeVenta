@@ -87,7 +87,7 @@ function v_hacerCompra() {
 					.done(function (res) {
 						var separa = res.split("~");
 
-						if ($.trim(separa[0]) == "Correcto") {
+						if (String(separa[0] ?? '').trim() == "Correcto") {
 							Swal.fire({
 								icon: 'success',
 								title: 'Compra guardada correctamente'
@@ -95,7 +95,7 @@ function v_hacerCompra() {
 
 							$("#modalCobrarCompra").modal("hide");
 							$('#cargarHacerCompra').trigger('click');
-							//window.open("controladores/pdf/ticketCompra.php?id=" + $.trim(separa[1]), '_blank');
+							//window.open("controladores/pdf/ticketCompra.php?id=" + String(separa[1] ?? '').trim(), '_blank');
 						} else {
 							Swal.fire({
 								icon: 'error',
@@ -103,7 +103,7 @@ function v_hacerCompra() {
 								text: 'Error inesperado al registrar la compra.'
 							});
 
-							console.log($.trim(res));
+							console.log(String(res ?? '').trim());
 						}
 					})
 					.fail(function () {
@@ -261,7 +261,7 @@ jQuery(document).ready(function ($) {
 			}
 		})
 			.done(function (res) {
-				//console.log($.trim(res));
+				//console.log(String(res ?? '').trim());
 				var datos = JSON.parse(res);
 				//console.log(datos);
 
@@ -459,7 +459,7 @@ jQuery(document).ready(function ($) {
 			});
 		} else {
 			var tipo = 'insertarOrden';
-			if ($.trim($(this).attr('attrID')) != '') {
+			if (String($(this).attr('attrID') ?? '').trim() != '') {
 				tipo = 'modificarOrden';
 			}
 
@@ -475,7 +475,7 @@ jQuery(document).ready(function ($) {
 			});
 
 			var data = "metodo=modificar&accion=hacerCompra&tipo=" + tipo + "&total=" + $("#totalCompra").text().replace('$', '').replaceAll(',', '') + "&idProveedor=" + $("#bRealizarCompra").attr("idProveedor") 
-			+ "&productos=" + JSON.stringify(productos) + "&descuento=" + $("#descuentoCompraDinero").val().replaceAll(',', '') + "&sucursal=" + $("#sucursalCompra").val() + "&id=" + $.trim($(this).attr('attrID'));
+			+ "&productos=" + JSON.stringify(productos) + "&descuento=" + $("#descuentoCompraDinero").val().replaceAll(',', '') + "&sucursal=" + $("#sucursalCompra").val() + "&id=" + String($(this).attr('attrID') ?? '').trim();
 
 			$.ajax({
 				url: 'index.php',
@@ -488,7 +488,7 @@ jQuery(document).ready(function ($) {
 				.done(function (res) {
 					var separa = res.split("~");
 
-					if ($.trim(separa[0]) == "Correcto") {
+					if (String(separa[0] ?? '').trim() == "Correcto") {
 						Swal.fire({
 							icon: 'success',
 							title: 'Orden de compra realizada correctamente'
@@ -497,7 +497,7 @@ jQuery(document).ready(function ($) {
 						$('#cargarHacerCompra').trigger('click');
 						$("#bGuardarOrden").attr('attrID', '');
 
-						//window.open("controladores/pdf/ticketOrden.php?id=" + $.trim(separa[1]), '_blank');
+						//window.open("controladores/pdf/ticketOrden.php?id=" + String(separa[1] ?? '').trim(), '_blank');
 					} else {
 						Swal.fire({
 							icon: 'error',
@@ -505,7 +505,7 @@ jQuery(document).ready(function ($) {
 							text: 'Error inesperado al registrar la orden.'
 						});
 
-						console.log($.trim(res));
+						console.log(String(res ?? '').trim());
 					}
 				})
 				.fail(function () {
@@ -530,8 +530,8 @@ jQuery(document).ready(function ($) {
 			}
 		})
 			.done(function (res) {
-				//console.log($.trim(res));
-				$("#verProdOrden").html($.trim(res));
+				//console.log(String(res ?? '').trim());
+				$("#verProdOrden").html(String(res ?? '').trim());
 				moneda();
 				$("#modalVerProductosOrden").modal('show');
 			})
@@ -571,7 +571,7 @@ jQuery(document).ready(function ($) {
 					}
 				})
 					.done(function (res) {
-						if ($.trim(res) == "Correcto") {
+						if (String(res ?? '').trim() == "Correcto") {
 							Swal.fire({
 								icon: 'success',
 								title: 'Orden de compra eliminada correctamente'
@@ -584,7 +584,7 @@ jQuery(document).ready(function ($) {
 								title: 'Oops...',
 								text: 'Error inesperado al eliminar la orden de compra.'
 							});
-							console.log($.trim(res));
+							console.log(String(res ?? '').trim());
 						}
 					})
 					.fail(function () {
@@ -619,8 +619,8 @@ jQuery(document).ready(function ($) {
 			}
 		})
 			.done(function (res) {
-				//console.log($.trim(res));
-				var datos = JSON.parse($.trim(res));
+				//console.log(String(res ?? '').trim());
+				var datos = JSON.parse(String(res ?? '').trim());
 
 				if (datos != null) {
 					console.log(datos);

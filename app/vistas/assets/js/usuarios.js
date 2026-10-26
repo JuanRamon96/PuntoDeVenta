@@ -96,7 +96,7 @@ function guardarUsuario() {
     }
   })
   .done(function(res){
-    if ($.trim(res) == 'Correcto') {
+    if (String(res ?? '').trim() == 'Correcto') {
       var title = guardarUsuarioBtn.attr('tipo') === 'insertar' ? '¡Usuario agregado correctamente!' : '¡Usuario modificado correctamente!'
       
       Swal.fire({
@@ -106,7 +106,7 @@ function guardarUsuario() {
 
       tablaUsuarios();
       $('#modalUsuarios').modal('hide');
-    }else if ($.trim(res).includes('Duplicate entry')) {
+    }else if (String(res ?? '').trim().includes('Duplicate entry')) {
       Swal.fire({
         icon: 'error',
         title: 'Oops...',
@@ -121,7 +121,7 @@ function guardarUsuario() {
         text: text
       });
 
-      console.log($.trim(res));
+      console.log(String(res ?? '').trim());
     }
   })
   .fail(function() {
@@ -243,7 +243,7 @@ jQuery(document).ready($ => {
           }
         })
         .done(function(res) {
-          if($.trim(res) === 'Correcto'){
+          if(String(res ?? '').trim() === 'Correcto'){
             Swal.fire({
               icon: 'success',
               title: '¡Usuario eliminado correctamente!'
@@ -258,7 +258,7 @@ jQuery(document).ready($ => {
               text: 'Error inesperado al eliminar el usuario'
             });
 
-            console.log($.trim(res));
+            console.log(String(res ?? '').trim());
           }
         })
         .fail(function() {
@@ -286,8 +286,8 @@ jQuery(document).ready($ => {
       }
     })
     .done(function(res) {
-      //console.log($.trim(res));
-      var resA = JSON.parse($.trim(res));
+      //console.log(String(res ?? '').trim());
+      var resA = JSON.parse(String(res ?? '').trim());
 
       $('#formUsuarios')[0].reset();
       $('#nombre').val(resA.Nombre);
@@ -352,7 +352,7 @@ jQuery(document).ready($ => {
           var separa = cadena[x].split(',');
           y = 1;
 
-          if(separa[0] == $.trim($(this).children('td:eq(0)').text())){
+          if(separa[0] == String($(this).children('td:eq(0)').text() ?? '').trim()){
             $(this).children('td:eq(1)').children('div.form-check').each(function(index, el) {
               if(separa[y] == '1'){
                 $(this).children('input.form-check-input').prop('checked', true);
@@ -374,9 +374,9 @@ jQuery(document).ready($ => {
   });
 
   $(document).on('click', '.checkPermisos', function() {
-    if($.trim($(this).parent().children('label').text()) == "Ver" && $(this).prop("checked") == false){
+    if(String($(this).parent().children('label').text() ?? '').trim() == "Ver" && $(this).prop("checked") == false){
       $(this).parent().parent().children('div.form-check').children('input.form-check-input').prop('checked', false);
-    }else if($.trim($(this).parent().children('label').text()) != "Ver" && $(this).prop("checked") == true && $.trim($(this).parent().parent().children('div.form-check:eq(0)').children('label').text()) == "Ver"){
+    }else if(String($(this).parent().children('label').text() ?? '').trim() != "Ver" && $(this).prop("checked") == true && String($(this).parent().parent().children('div.form-check:eq(0)').children('label').text() ?? '').trim() == "Ver"){
       $(this).parent().parent().children('div.form-check:eq(0)').children('input.form-check-input').prop('checked', true);
     }
 
@@ -384,7 +384,7 @@ jQuery(document).ready($ => {
     $("#tablaPermisos").children('tbody').children('tr').each(function(index, el) {
       y = 0;
       x++;
-      cadena += $.trim($(this).children('td:eq(0)').text())+',';
+      cadena += String($(this).children('td:eq(0)').text() ?? '').trim()+',';
 
       var padre = $(this);
       padre.children('td:eq(1)').children('div.form-check').each(function(index, el) {
@@ -418,14 +418,14 @@ jQuery(document).ready($ => {
       }
     })
     .done(function(res) {
-      if($.trim(res) != "Correcto"){
+      if(String(res ?? '').trim() != "Correcto"){
         Swal.fire({
           icon: 'error',
           title: 'Oops...',
           text: 'Error inesperado al camibar los permisos.'
         });
 
-        console.log($.trim(res));
+        console.log(String(res ?? '').trim());
       }
     })
     .fail(function() {

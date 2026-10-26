@@ -55,7 +55,7 @@
       }).cropper(options);
 
       // Buttons
-      if (!$.isFunction(document.createElement('canvas').getContext)) {
+      if (typeof document.createElement('canvas').getContext !== 'function') {
           $('button[data-method="getCroppedCanvas"]').prop('disabled', true);
       }
 

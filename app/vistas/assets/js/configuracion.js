@@ -23,8 +23,8 @@ function v_configuracion() {
 		errorClass: 'is-invalid',        
     	errorElement: 'div',
 		submitHandler: function (form) {
-			// const data = `metodo=modificar&accion=configuracion&tipo=email&email=" + $.trim($("#correoPerfil").val()) + "&contrasena=" + $("#contrasenaPerfil").val()`;
-			const data = `metodo=modificar&accion=configuracion&tipo=email&email=${$.trim($('#correoPerfil').val())}&password=${$.trim($('#contrasenaPerfil').val())}`
+			// const data = `metodo=modificar&accion=configuracion&tipo=email&email=" + String($("#correoPerfil").val() ?? '').trim() + "&contrasena=" + $("#contrasenaPerfil").val()`;
+			const data = `metodo=modificar&accion=configuracion&tipo=email&email=${String($('#correoPerfil').val() ?? '').trim()}&password=${String($('#contrasenaPerfil').val() ?? '').trim()}`
 			$.ajax({
 				url: 'index.php',
 				type: 'POST',
@@ -33,9 +33,9 @@ function v_configuracion() {
 					$("#carga").show()
 				}
 			}).done(function (res) {
-				if ($.trim(res) === "Correcto") {
+				if (String(res ?? '').trim() === "Correcto") {
 					$("#contrasenaPerfil").val("")
-					$("#cambioEmail").html($.trim($("#correoPerfil").val()))
+					$("#cambioEmail").html(String($("#correoPerfil").val() ?? '').trim())
 
 					return Swal.fire({
 						icon: 'success',
@@ -43,21 +43,21 @@ function v_configuracion() {
 					})
 
 				}
-				if ($.trim(res) === "Error Contraseña") {
+				if (String(res ?? '').trim() === "Error Contraseña") {
 					return Swal.fire({
 						icon: 'warning',
 						title: 'Oops...',
 						text: 'La contraseña actual es incorrecta.'
 					})
 				}
-				if ($.trim(res).includes('Duplicate entry')) {
+				if (String(res ?? '').trim().includes('Duplicate entry')) {
 					return Swal.fire({
 						icon: 'error',
 						title: 'Oops...',
 						text: 'El email ya ha sido utilizado, por favor intenta con otro.'
 					})
 				}
-				console.log($.trim(res))
+				console.log(String(res ?? '').trim())
 				return Swal.fire({
 					icon: 'error',
 					title: 'Oops...',
@@ -104,8 +104,8 @@ function v_configuracion() {
     	errorElement: 'div',
 		submitHandler: function (form) {
 			// var data = "metodo=modificar&accion=perfil&tipo=contrasena&contrasenaA=" + $("#contrasenaActualPerfil").val() + "&contrasena=" + $("#nuevaContrasenaPerfil").val();
-			const passwordActual = $.trim($('#contrasenaActualPerfil').val())
-			const passwordNueva = $.trim($('#nuevaContrasenaPerfil').val())
+			const passwordActual = String($('#contrasenaActualPerfil').val() ?? '').trim()
+			const passwordNueva = String($('#nuevaContrasenaPerfil').val() ?? '').trim()
 			const data = `metodo=modificar&accion=configuracion&tipo=password&passwordActual=${passwordActual}&passwordNueva=${passwordNueva}`
 			$.ajax({
 				url: 'index.php',
@@ -116,21 +116,21 @@ function v_configuracion() {
 				}
 			}).done(function (res) {
 				console.log(res)
-				if ($.trim(res) === "Correcto") {
+				if (String(res ?? '').trim() === "Correcto") {
 					document.querySelector("#formContrasena").reset()
 					return Swal.fire({
 						icon: 'success',
 						title: 'La contraseña fue modificada correctamente'
 					})
 				}
-				if ($.trim(res) === "Error Contraseña") {
+				if (String(res ?? '').trim() === "Error Contraseña") {
 					return Swal.fire({
 						icon: 'warning',
 						title: 'Oops...',
 						text: 'La contraseña actual es incorrecta.'
 					})
 				}
-				console.log($.trim(res))
+				console.log(String(res ?? '').trim())
 				return Swal.fire({
 					icon: 'error',
 					title: 'Oops...',
@@ -181,7 +181,7 @@ function v_configuracion() {
 					$("#carga").show();
 				}
 			}).done(function (res) {
-				if ($.trim(res) === "Correcto") {
+				if (String(res ?? '').trim() === "Correcto") {
 					const srcFoto = $("#mosFotoPerfil").attr("src");
 					if (srcFoto) {
 						$("#imagenPerfil").attr("src", srcFoto);
@@ -196,14 +196,14 @@ function v_configuracion() {
 
 					return
 				}
-				if ($.trim(res) === 'Error 2 Formato') {
+				if (String(res ?? '').trim() === 'Error 2 Formato') {
 					return Swal.fire({
 						icon: 'warning',
 						title: 'Oops...',
 						text: 'El formato de la foto no está permitido, los formatos permitidos son .png, .jpg o .svg.'
 					})
 				}
-				if ($.trim(res) === 'Error 3 Peso') {
+				if (String(res ?? '').trim() === 'Error 3 Peso') {
 					return Swal.fire({
 						icon: 'warning',
 						title: 'Oops...',
@@ -216,7 +216,7 @@ function v_configuracion() {
 					text: 'Error inesperado al modificar los datos.'
 				});
 
-				console.log($.trim(res));
+				console.log(String(res ?? '').trim());
 			}).fail(function () {
 				console.log("Error ajax")
 			}).always(function () {

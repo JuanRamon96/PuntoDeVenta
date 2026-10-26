@@ -33,7 +33,7 @@ function v_clasificaciones() {
         }
       })
         .done(function (res) {
-          if ($.trim(res) == "Correcto") {
+          if (String(res ?? '').trim() == "Correcto") {
             if ($("#bGuardarClasificacion").attr("tipo") == "modificar") {
               var tipoAlerta = "modificada";
             } else {
@@ -48,13 +48,13 @@ function v_clasificaciones() {
             tablaClasificaciones();
             verClaTienda();
             $("#modalClasificacion").modal("hide");
-          } else if ($.trim(res) === 'Error 2 formato') {
+          } else if (String(res ?? '').trim() === 'Error 2 formato') {
             Swal.fire({
               icon: 'warning',
               title: 'Oops...',
               text: 'El formato de la foto no está permitido, los formatos permitidos son .png, .jpg o .svg'
             });
-          } else if ($.trim(res) === 'Error 3 peso') {
+          } else if (String(res ?? '').trim() === 'Error 3 peso') {
             Swal.fire({
               icon: 'warning',
               title: 'Oops...',
@@ -67,7 +67,7 @@ function v_clasificaciones() {
               text: 'Error inesperado al ' + $("#bGuardarClasificacion").attr("tipo") + ' la clasificación.'
             });
 
-            console.log($.trim(res));
+            console.log(String(res ?? '').trim());
           }
         })
         .fail(function () {
@@ -207,7 +207,7 @@ jQuery(document).ready(function ($) {
         }
       })
         .done(function (res) {
-          if ($.trim(res) == "Correcto") {
+          if (String(res ?? '').trim() == "Correcto") {
             Swal.fire({
               icon: 'success',
               title: 'La clasificación ha sido eliminada correctamente'
@@ -222,7 +222,7 @@ jQuery(document).ready(function ($) {
               text: 'Error inesperado al eliminar la clasificación.'
             });
 
-            console.log($.trim(res));
+            console.log(String(res ?? '').trim());
           }
         })
         .fail(function () {
