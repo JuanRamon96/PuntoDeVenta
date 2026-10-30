@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const db = require('./db');
 const sesion = require('./sesion');
+const sync = require('./sync');
 const { html, fechaHumana } = require('./util');
 
 let web = null;
@@ -45,8 +46,11 @@ function layout() {
   // Secciones del menú que no existen en la app
   pagina = pagina.replace(/<li class="nav-item pcoded-menu-caption">\s*<label>(Compras|Facturación)<\/label>\s*<\/li>/g, '');
   // Checador de precios, configuración y PayPal requieren internet
-  pagina = pagina.replace(/<a href="#linkChecador#"[\s\S]*?<\/a>/, '');
-  pagina = pagina.replace(/<li><a href="javascript:void\(0\)" class="dropdown-item cargarVista"\s+carga="v_configuracion"[\s\S]*?<\/li>/, '');
+  // En lugar del checador de precios: botones generales para bajar cambios y subir ventas
+  pagina = pagina.replace(/<a href="#linkChecador#"[\s\S]*?<\/a>/, `<a href="javascript:void(0)" class="pop-search btn btn-outline-secondary btn-sm ml-1 bSincronizarOffline" title="Bajar productos, inventario, promociones, clientes y usuarios"><i class="fas fa-rotate"></i> Sincronizar</a>
+    <a href="javascript:void(0)" class="pop-search btn btn-outline-secondary btn-sm ml-1 bSubirVentasOffline" title="Subir las ventas de este equipo"><i class="fas fa-cloud-arrow-up"></i> Subir ventas (<span class="vtPendientesSubir">${sync.pendientes()}</span>)</a>`);
+  pagina = pagina.replace(/<li><a href="javascript:void\(0\)" class="dropdown-item cargarVista"\s+carga="v_configuracion"[\s\S]*?<\/li>/,
+    '<li><a href="javascript:void(0)" class="dropdown-item" id="bDesenlazarEquipo"><i class="fas fa-link-slash"></i> Desenlazar equipo</a></li>');
   pagina = pagina.replace(/<script\s+src="https:\/\/www\.paypal\.com[^>]*><\/script>/g, '');
 
   pagina = pagina.replace('#suscripcion#', estadoOffline());

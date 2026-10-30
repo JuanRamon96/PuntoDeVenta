@@ -1,6 +1,8 @@
 // Acciones propias de la app: sincronizar, subir ventas, estado y reenlace (accion=offline).
 const db = require('../db');
 const sync = require('../sync');
+const sesion = require('../sesion');
+const turno = require('../turno');
 const { fechaHumana } = require('../util');
 
 function estado() {
@@ -12,6 +14,7 @@ function estado() {
     negocio: enlace.negocio || '',
     ultimaSync: ultima ? fechaHumana(ultima) : 'nunca',
     pendientes: sync.pendientes(),
+    cajaAbierta: turno.abierta(),
     desenlazado: !!db.ajuste('desenlazado')
   };
 }
@@ -38,6 +41,13 @@ module.exports = {
     }
     if (p.tipo === 'subir') {
       return intentar(() => sync.subir());
+    }
+    if (p.tipo === 'desenlazar') {
+      return intentar(async () => {
+        await sync.desenlazar();
+        sesion.cerrar();
+        return {};
+      });
     }
     if (p.tipo === 'enlazar') {
       const r = await sync.enlazar(p.codigo);

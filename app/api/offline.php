@@ -137,6 +137,12 @@ $pendientes = isset($entrada['pendientes']) ? intval($entrada['pendientes']) : n
 $db->query("UPDATE punto_subs.dispositivos_offline SET Ultima_Sync = NOW()" . ($pendientes !== null ? ", Pendientes = '$pendientes'" : '') . " WHERE ID_Dispositivo = '" . intval($disp['ID_Dispositivo']) . "'");
 $db->query("USE punto_venta_$cuenta");
 
+// Desenlazar desde el equipo: libera la caja en la web. Lo no subido se queda en el equipo para subirlo al reenlazar.
+if ($accion === 'desenlazar') {
+	$db->query("UPDATE punto_subs.dispositivos_offline SET Estado = 'Desenlazado', Token_Hash = NULL, Codigo = NULL WHERE ID_Dispositivo = '" . intval($disp['ID_Dispositivo']) . "'");
+	responder(array('ok' => true));
+}
+
 if ($accion === 'estado') {
 	responder(array('ok' => true, 'suscripcion' => $sub, 'servidor' => date('Y-m-d H:i:s')));
 }

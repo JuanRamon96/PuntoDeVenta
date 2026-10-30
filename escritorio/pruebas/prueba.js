@@ -44,7 +44,9 @@ const pedir = (p) => rutas.atender('index.php', 'POST', p);
   assert.match(layout, /id="bMenuCajas"/);
   assert.doesNotMatch(layout, /carga="v_cajas"/);
   assert.doesNotMatch(layout, /paypal\.com|v_compras|v_facturas/);
-  assert.match(await pedir({ metodo: 'cambiar', accion: 'v_productos_offline' }), /Sincronizar/);
+  assert.match(layout, /bSincronizarOffline/);
+  assert.match(layout, /bDesenlazarEquipo/);
+  assert.doesNotMatch(await pedir({ metodo: 'cambiar', accion: 'v_productos_offline' }), /bSincronizarOffline/);
 
   // 4. Abrir caja
   assert.match(await pedir({ metodo: 'consultar', accion: 'cajas', buscar: '', limit: 10, pagina: 1 }), /bAbrirCaja/);
@@ -125,6 +127,18 @@ const pedir = (p) => rutas.atender('index.php', 'POST', p);
   // Cierra el turno que quedó abierto para dejar la caja limpia
   await pedir({ metodo: 'modificar', accion: 'caja', tipo: 'cerrar', idCaja: CAJA, fecha_cierre: '', monto: '0' });
   await pedir({ metodo: 'detalles', accion: 'offline', tipo: 'subir' });
+
+  // 9. Desenlazar desde el equipo: libera la caja en la web y vuelve a pedir código
+  await pedir({ metodo: 'insertar', accion: 'cajas', tipo: 'abrir', fkCaja: CAJA, montoCaja: '0' });
+  assert.match(await venta(1), /^Correcto~/); // queda una venta sin subir: no debe perderse
+  assert.ok(JSON.parse(await pedir({ metodo: 'detalles', accion: 'offline', tipo: 'desenlazar' })).ok);
+  assert.match(await rutas.atender('index.php', 'GET', {}), /Enlazar este equipo/);
+  assert.strictEqual(mysql(`SELECT COUNT(*) FROM punto_subs.dispositivos_offline WHERE FK_Cuenta = ${CUENTA} AND FK_Caja = ${CAJA} AND Estado = 'Activo'`), '0');
+  assert.strictEqual(db.valor('SELECT COUNT(*) FROM ventas WHERE Subido = 0'), 1);
+  const codigo3 = execFileSync(PHP, [path.join(__dirname, 'generar-codigo.php'), String(CUENTA), String(CAJA)]).toString().trim();
+  assert.strictEqual(await pedir({ accion: 'enlazar', codigo: codigo3 }), 'Correcto');
+  assert.strictEqual(await pedir({ accion: 'login', correo: usuario.correo, contrasena: usuario.contrasena }), 'Correcto');
+  assert.strictEqual(JSON.parse(await pedir({ metodo: 'detalles', accion: 'offline', tipo: 'subir' })).subidas, 1);
 
   console.log('Todas las pruebas pasaron. Base de prueba en', carpeta);
 })().catch((e) => {

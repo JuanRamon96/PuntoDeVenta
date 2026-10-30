@@ -280,4 +280,18 @@ async function subir() {
   return { subidas, errores: r.errores };
 }
 
-module.exports = { iniciar, enlazar, bajar, subir, pendientes, ErrorServidor };
+// Libera la caja en la web y deja el equipo sin enlazar. Las ventas y cortes sin subir se conservan
+// y se suben cuando el equipo se vuelva a enlazar.
+async function desenlazar() {
+  try {
+    await llamar({ accion: 'desenlazar' });
+  } catch (e) {
+    if (e.codigo !== 'desenlazado') {
+      throw e; // sin internet no se puede liberar la caja en la web
+    }
+  }
+  db.ajuste('enlace', null);
+  db.ajuste('desenlazado', false);
+}
+
+module.exports = { iniciar, enlazar, bajar, subir, desenlazar, pendientes, ErrorServidor };

@@ -182,3 +182,44 @@ jQuery(function () {
     }
   }, 50);
 });
+
+// Desenlazar el equipo: libera la caja en la web. Lo no subido se conserva en el equipo.
+$(document).on('click', '#bDesenlazarEquipo', function () {
+  offlinePeticion('estado').then(function (r) {
+    const e = r.estado;
+    let aviso = 'La caja quedará libre en el sistema web y este equipo pedirá un código nuevo para volver a usarse.';
+    if (e.pendientes > 0 || e.cajaAbierta) {
+      aviso += '<br><br><b>' + (e.pendientes > 0 ? 'Tienes ' + e.pendientes + ' venta(s) sin subir' : 'La caja está abierta') +
+        '.</b> No se pierde nada: se queda guardado en este equipo y se sube cuando lo vuelvas a enlazar. Si prefieres, primero presiona "Subir ventas".';
+    }
+    Swal.fire({
+      title: '¿Desenlazar este equipo?',
+      html: aviso,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonText: 'No, cancelar',
+      confirmButtonText: 'Sí, desenlazar'
+    }).then(function (res) {
+      if (!res.value) {
+        return;
+      }
+      Swal.fire({ title: 'Desenlazando...', allowOutsideClick: false, didOpen: function () { Swal.showLoading(); } });
+      offlinePeticion('desenlazar').then(function (d) {
+        if (d.ok) {
+          window.location.reload();
+        } else {
+          Swal.fire({ icon: 'warning', title: 'No se pudo desenlazar', text: d.error });
+        }
+      });
+    });
+  });
+});
+
+// El contador de "Subir ventas" del encabezado se actualiza después de vender, cancelar o eliminar
+$(document).ajaxComplete(function (e, xhr, opciones) {
+  const datos = typeof opciones.data === 'string' ? opciones.data : $.param(opciones.data || {});
+  if (/accion=(caja|ventas)/.test(datos) && /metodo=(insertar|eliminar|modificar)/.test(datos)) {
+    offlinePeticion('estado').then(function (r) { offlinePintarEstado(r.estado); });
+  }
+});
