@@ -38,7 +38,6 @@ function layout() {
     '#menuInventario#': sesion.puede('Inventario') ? itemMenu('v_inventario_offline', 'Inventario', 'bMenuInventario', 'fas fa-clipboard-list') : '',
     '#menuPromociones#': sesion.puede('Promociones') ? itemMenu('v_promociones_offline', 'Promociones', 'bMenuPromociones', 'fa-solid fa-tags') : '',
     '#menuVentas#': itemMenu('v_ventas_offline', 'Ventas', 'bMenuVentas', 'fas fa-dollar-sign'),
-    '#menuCajas#': itemMenu('v_cajas', 'Caja', 'bMenuCajas', 'fas fa-cash-register'),
     '#menuUsuarios#': sesion.puede('Usuarios') ? itemMenu('v_usuarios_offline', 'Usuarios', 'bMenuUsuarios', 'fas fa-users') : ''
   };
   pagina = pagina.replace(/#menu[A-Za-z]+#/g, (marca) => menus[marca] || '');
@@ -54,7 +53,9 @@ function layout() {
   pagina = pagina.replace('#fotoCuenta#', 'vistas/assets/images/default.jpg');
   pagina = pagina.replace('#emailCuenta#', html(sesion.usuario().Correo));
   pagina = pagina.replace('</head>', '<link rel="stylesheet" href="offline/offline.css">\n</head>');
-  pagina = pagina.replace(/<\/body>/, '<script src="offline/offline.js"></script>\n</body>');
+  // Sin módulo de cajas: caja.js da clic en #bMenuCajas cuando la caja está cerrada y offline.js pide el monto de apertura.
+  // Va fuera del menú lateral porque pcoded.js detiene los clics de sus enlaces.
+  pagina = pagina.replace(/<\/body>/, '<a href="javascript:void(0)" id="bMenuCajas" class="d-none"></a>\n<script src="offline/offline.js"></script>\n</body>');
   return pagina;
 }
 

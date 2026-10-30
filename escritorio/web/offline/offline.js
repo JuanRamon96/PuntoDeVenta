@@ -143,11 +143,42 @@ $(document).on('click', '.bEliminarVentaLocal', function () {
   });
 });
 
-// La app abre directo en la caja
+// Caja cerrada: al presionar "Caja" se pide el monto de apertura y luego se abre la caja
+$(document).on('click', '#bMenuCajas', function () {
+  $('#carga').hide();
+  Swal.fire({
+    title: 'Abrir caja',
+    text: 'Monto con el que inicia la caja',
+    input: 'number',
+    inputValue: '',
+    inputAttributes: { min: 0, step: '0.01', style: 'text-align: center; font-size: 26px;' },
+    showCancelButton: true,
+    confirmButtonText: 'Abrir caja',
+    cancelButtonText: 'Cancelar',
+    inputValidator: function (valor) {
+      if (valor === '' || isNaN(valor) || Number(valor) < 0) {
+        return 'Escribe el monto de apertura.';
+      }
+    }
+  }).then(function (r) {
+    if (r.value === undefined) {
+      return;
+    }
+    $.post('index.php', { metodo: 'insertar', accion: 'cajas', tipo: 'abrir', fkCaja: 0, montoCaja: r.value }).done(function (res) {
+      if (String(res).trim() === 'Correcto') {
+        document.getElementById('bAbrirCaja').click();
+      } else {
+        Swal.fire({ icon: 'error', title: 'Oops...', text: String(res) });
+      }
+    });
+  });
+});
+
+// La app abre en la pantalla de ventas
 jQuery(function () {
   setTimeout(function () {
-    if ($('#bMenuCajas').length) {
-      $('#bMenuCajas').trigger('click');
+    if ($('#bMenuVentas').length) {
+      $('#bMenuVentas').trigger('click');
     }
   }, 50);
 });

@@ -418,8 +418,12 @@ module.exports = {
 
   detalles(p) {
     if (p.tipo === 'consultarCaja') {
-      if (!turno.abierta() || turno.usuarioEnCaja() !== sesion.id()) {
+      if (!turno.abierta()) {
         return 'No';
+      }
+      // Un solo equipo por caja: quien presiona "Caja" la toma
+      if (turno.usuarioEnCaja() !== sesion.id()) {
+        turno.tomar(sesion.id());
       }
       const caja = db.uno('SELECT ID_Caja, Nombre FROM cajas WHERE ID_Caja = ?', [turno.cajaId()]);
       return caja ? JSON.stringify({ ID_Caja: txt(caja.ID_Caja), Nombre: caja.Nombre }) : 'No';

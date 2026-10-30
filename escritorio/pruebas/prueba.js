@@ -41,7 +41,8 @@ const pedir = (p) => rutas.atender('index.php', 'POST', p);
   assert.strictEqual(await pedir({ accion: 'login', correo: 'nadie@x.com', contrasena: 'x' }), 'No existe');
   assert.strictEqual(await pedir({ accion: 'login', correo: usuario.correo, contrasena: usuario.contrasena }), 'Correcto');
   const layout = await rutas.atender('index.php', 'GET', {});
-  assert.match(layout, /v_cajas/);
+  assert.match(layout, /id="bMenuCajas"/);
+  assert.doesNotMatch(layout, /carga="v_cajas"/);
   assert.doesNotMatch(layout, /paypal\.com|v_compras|v_facturas/);
   assert.match(await pedir({ metodo: 'cambiar', accion: 'v_productos_offline' }), /Sincronizar/);
 
