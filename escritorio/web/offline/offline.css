@@ -1,0 +1,21 @@
+/* Estilos propios de la app de escritorio */
+.vt-offline-estado {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  background: #f4f6f8;
+  white-space: nowrap;
+}
+
+.vt-offline-nota {
+  font-size: 13px;
+  color: #6c757d;
+}
+
+.pcoded-header #vtOfflineEstado,
+.pcoded-header #vtOfflineEstado * {
+  color: #1d2a3a !important;
+}

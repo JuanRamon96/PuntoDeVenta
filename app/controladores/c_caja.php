@@ -449,6 +449,162 @@ class caja
     }
   }
 
+  // Guarda una venta con sus renglones, impuestos y lotes. La usan la caja web y la API offline (api/offline.php).
+  // $v trae los mismos campos que manda caja.js; $fkDetalleCaja es una expresión SQL o un ID.
+  public function guardarVenta($omodelo, $v, $idUsuario, $fecha, $fkDetalleCaja)
+  {
+    $total = $omodelo->link->real_escape_string($v['total']);
+    $tipoPago = $omodelo->link->real_escape_string($v['tipoPago']);
+    $pago = $omodelo->link->real_escape_string($v['pago']);
+    $cambio = $omodelo->link->real_escape_string($v['cambio']);
+    $cliente = $omodelo->link->real_escape_string($v['cliente']);
+    $fkDireccion = $omodelo->link->real_escape_string($v['fkDireccion']);
+    $descuento = $omodelo->link->real_escape_string($v['descuento']);
+    $turno = isset($v['turno']) ? $omodelo->link->real_escape_string($v['turno']) : '';
+    $idUsuario = $omodelo->link->real_escape_string($idUsuario);
+    $fecha = $omodelo->link->real_escape_string($fecha);
+    $detallesOffline = isset($v['detallesOffline']) ? "Detalles = '" . $omodelo->link->real_escape_string($v['detallesOffline']) . "', " : '';
+
+    $estatus = 0;
+    if ($pago < $total && $tipoPago == 'Crédito') {
+      $estatus = 1;
+    }
+
+    $query = "INSERT INTO ventas SET
+      Turno = '$turno',
+      Descuento = '$descuento',
+      Total = '$total',
+      Tipo_Pago = '$tipoPago',
+      Pago = '$pago',
+      Cambio = '$cambio',
+      Fecha_Registro = '$fecha',
+      Estatus = '$estatus',
+      FK_Cliente = '$cliente',
+      FK_Direccion = '$fkDireccion',
+      $detallesOffline
+      FK_Detalles_Caja = $fkDetalleCaja,
+      FK_Usuario = '$idUsuario'";
+    $error = $omodelo->_insertar($query);
+
+    if ($error == 'si') {
+      return array('ok' => false, 'mensaje' => "Error 1: " . mysqli_error($omodelo->link));
+    }
+
+    $idVenta = $omodelo->link->insert_id;
+
+    $productos = is_array($v['productos']) ? $v['productos'] : json_decode($v['productos'], true);
+    foreach ($productos as $producto) {
+      $producto['id'] = $omodelo->link->real_escape_string(trim($producto['id']));
+      $producto['descripcion'] = $omodelo->link->real_escape_string(trim($producto['descripcion']));
+      $producto['precio'] = $omodelo->link->real_escape_string(trim($producto['precio']));
+      $producto['cantidad'] = $omodelo->link->real_escape_string(trim($producto['cantidad']));
+      $producto['descuento'] = $omodelo->link->real_escape_string(trim($producto['descuento']));
+      $producto['total'] = $omodelo->link->real_escape_string(trim($producto['total']));
+
+      $query1 = "INSERT INTO detalles_ventas SET
+        FK_Venta = '$idVenta', FK_Producto = '$producto[id]',
+        Descripcion = '$producto[descripcion]',
+        Precio = '$producto[precio]',
+        Cantidad = '$producto[cantidad]',
+        Descuento = '$producto[descuento]',
+        Total = '$producto[total]',
+        Costo = IFNULL((SELECT Costo FROM productos WHERE ID_Producto = '$producto[id]'), 0)";
+      $error1 = $omodelo->_insertar($query1);
+
+      if ($error1 == 'si') {
+        return array('ok' => false, 'mensaje' => "Error 2: " . mysqli_error($omodelo->link));
+      }
+
+      $idDetalleVenta = $omodelo->link->insert_id;
+
+      foreach ($producto['impuestos'] as $impuesto) {
+        $nombreImpuesto = $omodelo->link->real_escape_string(trim($impuesto['nombre']));
+        $porcentajeImpuesto = $omodelo->link->real_escape_string(trim($impuesto['porcentaje']));
+        $claveCFDI = $omodelo->link->real_escape_string(trim($impuesto['clave']));
+        $clase = $omodelo->link->real_escape_string(trim($impuesto['clase']));
+        $tipoFactor = $omodelo->link->real_escape_string(trim($impuesto['factor']));
+
+        $query2 = "INSERT INTO impuestos_ventas SET
+          FK_Detalle_Venta = $idDetalleVenta,
+          Nombre = '$nombreImpuesto',
+          Porcentaje = '$porcentajeImpuesto',
+          Clave_CFDI = '$claveCFDI',
+          Clase = '$clase',
+          Tipo_Factor = '$tipoFactor'";
+        $error2 = $omodelo->_insertar($query2);
+
+        if ($error2 == 'si') {
+          return array('ok' => false, 'mensaje' => "Error 3: " . mysqli_error($omodelo->link));
+        }
+      }
+
+      // Gestion de lotes
+      $cantPorDescontar = floatval($producto['cantidad']);
+      $idProdActual = $producto['id'];
+
+      $qInv = "SELECT ID_Inventario FROM inventario WHERE FK_Producto = '$idProdActual'";
+      $rInv = $omodelo->_consultar($qInv);
+      if ($rInv != 'si' && $omodelo->numerofilas > 0) {
+        $idInventarioActual = $rInv[0]['ID_Inventario'];
+
+        // 1. Deducir lotes explicitamente asignados (si se enviaron)
+        if (!empty($producto['lotes']) && is_array($producto['lotes'])) {
+          foreach ($producto['lotes'] as $loteItem) {
+            $idLoteReq = isset($loteItem['idLote']) ? intval($loteItem['idLote']) : 0;
+            $cantLoteReq = isset($loteItem['cantidad']) ? floatval($loteItem['cantidad']) : 0;
+
+            if ($idLoteReq > 0 && $cantLoteReq > 0 && $cantPorDescontar > 0) {
+              $qCheck = "SELECT ID_Lote, Cantidad FROM inventario_lotes WHERE ID_Lote = '$idLoteReq' AND FK_Inventario = '$idInventarioActual'";
+              $rCheck = $omodelo->_consultar($qCheck);
+              if ($rCheck != 'si' && $omodelo->numerofilas > 0) {
+                $cantDeducir = min($cantLoteReq, $cantPorDescontar);
+                if ($cantDeducir > 0) {
+                  $omodelo->_insertar("UPDATE inventario_lotes SET Cantidad = GREATEST(0, Cantidad - $cantDeducir) WHERE ID_Lote = '$idLoteReq'");
+                  $qChk = "SELECT ID_Detalle_Venta_Lote FROM detalles_ventas_lotes WHERE FK_Detalle_Venta = '$idDetalleVenta' AND FK_Lote = '$idLoteReq'";
+                  $rChk = $omodelo->_consultar($qChk);
+                  if ($rChk != 'si' && $omodelo->numerofilas > 0) {
+                    $omodelo->_insertar("UPDATE detalles_ventas_lotes SET Cantidad = Cantidad + $cantDeducir WHERE ID_Detalle_Venta_Lote = '" . $rChk[0]['ID_Detalle_Venta_Lote'] . "'");
+                  } else {
+                    $omodelo->_insertar("INSERT INTO detalles_ventas_lotes SET FK_Detalle_Venta = '$idDetalleVenta', FK_Lote = '$idLoteReq', Cantidad = '$cantDeducir'");
+                  }
+                  $cantPorDescontar -= $cantDeducir;
+                }
+              }
+            }
+          }
+        }
+
+        // 2. Si queda cantidad pendiente por asignar lote (o no se especifico lote), deducir por FIFO (caducidad mas proxima)
+        if ($cantPorDescontar > 0) {
+          $qFifo = "SELECT ID_Lote, Cantidad FROM inventario_lotes
+                    WHERE FK_Inventario = '$idInventarioActual' AND Cantidad > 0
+                    ORDER BY Fecha_Caducidad ASC, ID_Lote ASC";
+          $rFifo = $omodelo->_consultar($qFifo);
+          if ($rFifo != 'si' && $omodelo->numerofilas > 0) {
+            for ($kf = 0; $kf < $omodelo->numerofilas && $cantPorDescontar > 0; $kf++) {
+              $idLoteFifo = $rFifo[$kf]['ID_Lote'];
+              $stockFifo = floatval($rFifo[$kf]['Cantidad']);
+              $cantDeducir = min($stockFifo, $cantPorDescontar);
+              if ($cantDeducir > 0) {
+                $omodelo->_insertar("UPDATE inventario_lotes SET Cantidad = GREATEST(0, Cantidad - $cantDeducir) WHERE ID_Lote = '$idLoteFifo'");
+                $qChk = "SELECT ID_Detalle_Venta_Lote FROM detalles_ventas_lotes WHERE FK_Detalle_Venta = '$idDetalleVenta' AND FK_Lote = '$idLoteFifo'";
+                $rChk = $omodelo->_consultar($qChk);
+                if ($rChk != 'si' && $omodelo->numerofilas > 0) {
+                  $omodelo->_insertar("UPDATE detalles_ventas_lotes SET Cantidad = Cantidad + $cantDeducir WHERE ID_Detalle_Venta_Lote = '" . $rChk[0]['ID_Detalle_Venta_Lote'] . "'");
+                } else {
+                  $omodelo->_insertar("INSERT INTO detalles_ventas_lotes SET FK_Detalle_Venta = '$idDetalleVenta', FK_Lote = '$idLoteFifo', Cantidad = '$cantDeducir'");
+                }
+                $cantPorDescontar -= $cantDeducir;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    return array('ok' => true, 'id' => $idVenta, 'query' => $query, 'mensaje' => "Correcto~$idVenta");
+  }
+
   public function _insertar()
   {
     $omodelo = new m_modelo();
@@ -458,155 +614,11 @@ class caja
 
     if ($tipo == 'venta') {
       $idCaja = $omodelo->link->real_escape_string($idCaja);
-      $total = $omodelo->link->real_escape_string($total);
-      $tipoPago = $omodelo->link->real_escape_string($tipoPago);
-      $pago = $omodelo->link->real_escape_string($pago);
-      $cambio = $omodelo->link->real_escape_string($cambio);
-      $cliente = $omodelo->link->real_escape_string($cliente);
-      $fkDireccion = $omodelo->link->real_escape_string($fkDireccion);
-      $descuento = $omodelo->link->real_escape_string($descuento);
-      $turno = isset($turno) ? $omodelo->link->real_escape_string($turno) : '';
+      $res = $this->guardarVenta($omodelo, $_POST, $_SESSION['user_punto_venta']['ID_Usuario'], $fecha, "(SELECT ID_Detalle_Caja FROM detalles_caja WHERE FK_Caja = '$idCaja' ORDER BY ID_Detalle_Caja DESC LIMIT 1)");
+      echo $res['mensaje'];
 
-      $estatus = 0;
-      if ($pago < $total && $tipoPago == 'Crédito') {
-        $estatus = 1;
-      }
-
-      $query = "INSERT INTO ventas SET 
-        Turno = '$turno', 
-        Descuento = '$descuento', 
-        Total = '$total', 
-        Tipo_Pago = '$tipoPago', 
-        Pago = '$pago', 
-        Cambio = '$cambio', 
-        Fecha_Registro = '$fecha', 
-        Estatus = '$estatus', 
-        FK_Cliente = '$cliente', 
-        FK_Direccion = '$fkDireccion', 
-        FK_Detalles_Caja = (SELECT ID_Detalle_Caja FROM detalles_caja WHERE FK_Caja = '$idCaja' ORDER BY ID_Detalle_Caja DESC LIMIT 1), 
-        FK_Usuario = '" . $_SESSION['user_punto_venta']['ID_Usuario'] . "'";
-      $error = $omodelo->_insertar($query);
-
-      if ($error == 'si') {
-        echo "Error 1: " . mysqli_error($omodelo->link);
-      } else {
-        $idVenta = $omodelo->link->insert_id;
-
-        $productos = json_decode($productos, true);
-        foreach ($productos as $producto) {
-          $producto['id'] = $omodelo->link->real_escape_string(trim($producto['id']));
-          $producto['descripcion'] = $omodelo->link->real_escape_string(trim($producto['descripcion']));
-          $producto['precio'] = $omodelo->link->real_escape_string(trim($producto['precio']));
-          $producto['cantidad'] = $omodelo->link->real_escape_string(trim($producto['cantidad']));
-          $producto['descuento'] = $omodelo->link->real_escape_string(trim($producto['descuento']));
-          $producto['total'] = $omodelo->link->real_escape_string(trim($producto['total']));
-
-          $query1 = "INSERT INTO detalles_ventas SET 
-            FK_Venta = '$idVenta', FK_Producto = '$producto[id]', 
-            Descripcion = '$producto[descripcion]', 
-            Precio = '$producto[precio]', 
-            Cantidad = '$producto[cantidad]', 
-            Descuento = '$producto[descuento]', 
-            Total = '$producto[total]', 
-            Costo = IFNULL((SELECT Costo FROM productos WHERE ID_Producto = '$producto[id]'), 0)";
-          $error1 = $omodelo->_insertar($query1);
-
-          if ($error1 == 'si') {
-            echo "Error 2: " . mysqli_error($omodelo->link);
-            return;
-          } else {
-            $idDetalleVenta = $omodelo->link->insert_id;
-
-            foreach ($producto['impuestos'] as $impuesto) {
-              $nombreImpuesto = $omodelo->link->real_escape_string(trim($impuesto['nombre']));
-              $porcentajeImpuesto = $omodelo->link->real_escape_string(trim($impuesto['porcentaje']));
-              $claveCFDI = $omodelo->link->real_escape_string(trim($impuesto['clave']));
-              $clase = $omodelo->link->real_escape_string(trim($impuesto['clase']));
-              $tipoFactor = $omodelo->link->real_escape_string(trim($impuesto['factor']));
-
-              $query2 = "INSERT INTO impuestos_ventas SET 
-                FK_Detalle_Venta = $idDetalleVenta,
-                Nombre = '$nombreImpuesto', 
-                Porcentaje = '$porcentajeImpuesto',
-                Clave_CFDI = '$claveCFDI',
-                Clase = '$clase',
-                Tipo_Factor = '$tipoFactor'";
-              $error2 = $omodelo->_insertar($query2);
-
-              if ($error2 == 'si') {
-                echo "Error 3: " . mysqli_error($omodelo->link);
-                return;
-              }
-            }
-
-            // Gestion de lotes
-            $cantPorDescontar = floatval($producto['cantidad']);
-            $idProdActual = $producto['id'];
-
-            $qInv = "SELECT ID_Inventario FROM inventario WHERE FK_Producto = '$idProdActual'";
-            $rInv = $omodelo->_consultar($qInv);
-            if ($rInv != 'si' && $omodelo->numerofilas > 0) {
-              $idInventarioActual = $rInv[0]['ID_Inventario'];
-
-              // 1. Deducir lotes explicitamente asignados (si se enviaron)
-              if (!empty($producto['lotes']) && is_array($producto['lotes'])) {
-                foreach ($producto['lotes'] as $loteItem) {
-                  $idLoteReq = isset($loteItem['idLote']) ? intval($loteItem['idLote']) : 0;
-                  $cantLoteReq = isset($loteItem['cantidad']) ? floatval($loteItem['cantidad']) : 0;
-
-                  if ($idLoteReq > 0 && $cantLoteReq > 0 && $cantPorDescontar > 0) {
-                    $qCheck = "SELECT ID_Lote, Cantidad FROM inventario_lotes WHERE ID_Lote = '$idLoteReq' AND FK_Inventario = '$idInventarioActual'";
-                    $rCheck = $omodelo->_consultar($qCheck);
-                    if ($rCheck != 'si' && $omodelo->numerofilas > 0) {
-                      $cantDeducir = min($cantLoteReq, $cantPorDescontar);
-                      if ($cantDeducir > 0) {
-                        $omodelo->_insertar("UPDATE inventario_lotes SET Cantidad = GREATEST(0, Cantidad - $cantDeducir) WHERE ID_Lote = '$idLoteReq'");
-                        $qChk = "SELECT ID_Detalle_Venta_Lote FROM detalles_ventas_lotes WHERE FK_Detalle_Venta = '$idDetalleVenta' AND FK_Lote = '$idLoteReq'";
-                        $rChk = $omodelo->_consultar($qChk);
-                        if ($rChk != 'si' && $omodelo->numerofilas > 0) {
-                          $omodelo->_insertar("UPDATE detalles_ventas_lotes SET Cantidad = Cantidad + $cantDeducir WHERE ID_Detalle_Venta_Lote = '" . $rChk[0]['ID_Detalle_Venta_Lote'] . "'");
-                        } else {
-                          $omodelo->_insertar("INSERT INTO detalles_ventas_lotes SET FK_Detalle_Venta = '$idDetalleVenta', FK_Lote = '$idLoteReq', Cantidad = '$cantDeducir'");
-                        }
-                        $cantPorDescontar -= $cantDeducir;
-                      }
-                    }
-                  }
-                }
-              }
-
-              // 2. Si queda cantidad pendiente por asignar lote (o no se especifico lote), deducir por FIFO (caducidad mas proxima)
-              if ($cantPorDescontar > 0) {
-                $qFifo = "SELECT ID_Lote, Cantidad FROM inventario_lotes 
-                          WHERE FK_Inventario = '$idInventarioActual' AND Cantidad > 0 
-                          ORDER BY Fecha_Caducidad ASC, ID_Lote ASC";
-                $rFifo = $omodelo->_consultar($qFifo);
-                if ($rFifo != 'si' && $omodelo->numerofilas > 0) {
-                  for ($kf = 0; $kf < $omodelo->numerofilas && $cantPorDescontar > 0; $kf++) {
-                    $idLoteFifo = $rFifo[$kf]['ID_Lote'];
-                    $stockFifo = floatval($rFifo[$kf]['Cantidad']);
-                    $cantDeducir = min($stockFifo, $cantPorDescontar);
-                    if ($cantDeducir > 0) {
-                      $omodelo->_insertar("UPDATE inventario_lotes SET Cantidad = GREATEST(0, Cantidad - $cantDeducir) WHERE ID_Lote = '$idLoteFifo'");
-                      $qChk = "SELECT ID_Detalle_Venta_Lote FROM detalles_ventas_lotes WHERE FK_Detalle_Venta = '$idDetalleVenta' AND FK_Lote = '$idLoteFifo'";
-                      $rChk = $omodelo->_consultar($qChk);
-                      if ($rChk != 'si' && $omodelo->numerofilas > 0) {
-                        $omodelo->_insertar("UPDATE detalles_ventas_lotes SET Cantidad = Cantidad + $cantDeducir WHERE ID_Detalle_Venta_Lote = '" . $rChk[0]['ID_Detalle_Venta_Lote'] . "'");
-                      } else {
-                        $omodelo->_insertar("INSERT INTO detalles_ventas_lotes SET FK_Detalle_Venta = '$idDetalleVenta', FK_Lote = '$idLoteFifo', Cantidad = '$cantDeducir'");
-                      }
-                      $cantPorDescontar -= $cantDeducir;
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-
-        echo "Correcto~$idVenta";
-
-        $omodelo->movimiento($query, $_SESSION['user_punto_venta']['ID_Usuario']);
+      if ($res['ok']) {
+        $omodelo->movimiento($res['query'], $_SESSION['user_punto_venta']['ID_Usuario']);
       }
     } else if ($tipo == 'movimiento') {
       $cajaId = $omodelo->link->real_escape_string($cajaId);

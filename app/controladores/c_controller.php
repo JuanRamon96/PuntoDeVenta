@@ -9,6 +9,7 @@ include "controladores/c_clientes.php";
 include "controladores/c_ventas.php";
 include "controladores/c_cajas.php";
 include "controladores/c_caja.php";
+include "controladores/c_dispositivos.php";
 include "controladores/c_proveedores.php";
 include "controladores/c_compras.php";
 include "controladores/c_hacerCompra.php";
@@ -333,6 +334,9 @@ class controller
 				</li>';
 				$menuConfiguracion = '<li class="nav-item">
 					<a href="javascript:void(0)" class="nav-link cargarVista" carga="v_cuenta" titulo="Configuración" id="bMenuConfiguracion"><span class="pcoded-micon"><i class="fas fa-gear"></i></span><span class="pcoded-mtext">Configuración</span></a>
+				</li>
+				<li class="nav-item">
+					<a href="javascript:void(0)" class="nav-link cargarVista" carga="v_dispositivos" titulo="Dispositivos offline" id="bMenuDispositivos"><span class="pcoded-micon"><i class="fas fa-laptop"></i></span><span class="pcoded-mtext">Dispositivos offline</span></a>
 				</li>';
 			}
 

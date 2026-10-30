@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/../modelo/offline.php';
+
 class cajas {
 
   public function _consultar() {
@@ -34,8 +36,21 @@ class cajas {
       echo "Error: " . mysqli_error($omodelo->link);
     }else{
       if($numerofilas > 0){
+        $bloqueadas = offlineCajasBloqueadas($omodelo, $_SESSION['user_punto_bd']);
         for ($i = 0; $i < $numerofilas; $i++) {
           $usuarioUso = 0;
+
+          if (isset($bloqueadas[$row[$i]['ID_Caja']])) {
+            $arreglo['data'][$i] = array(
+              'ID' => $row[$i]['ID_Caja'],
+              'Nombre' => '<span style="font-size: 14px;">'.$row[$i]['Nombre'].'</span>',
+              'Estado' => '<span class="badge rounded-pill bg-dark"><i class="fas fa-lock"></i> Bloqueada</span>',
+              'Detalles' => '<b>Caja bloqueada porque se está utilizando offline</b><br><span>Dispositivo: ' . htmlspecialchars($bloqueadas[$row[$i]['ID_Caja']]) . '</span>',
+              'Sucursal' => '<span style="font-size: 14px;" attrID="'.$row[$i]['FK_Sucursal'].'">'.$row[$i]['Sucursal'].'</span>',
+              'Acciones' => ''
+            );
+            continue;
+          }
           $detalles = trim($row[$i]['Detalles']) != '' ? '<b>Detalles: </b><span>'.$row[$i]['Detalles'].'</span><br>': '';
 
           if ($row[$i]['Estado'] == 0) {
@@ -179,6 +194,11 @@ class cajas {
       $montoCaja = $omodelo->link->real_escape_string(trim($montoCaja));
       $fkCaja = $omodelo->link->real_escape_string(trim($fkCaja));
 
+      if (offlineCajaBloqueada($omodelo, $_SESSION['user_punto_bd'], $fkCaja)) {
+        echo 'Caja bloqueada porque se está utilizando offline';
+        return;
+      }
+
       $query = "UPDATE cajas SET Estado = 1, FK_Usuario = '".$_SESSION['user_punto_venta']['ID_Usuario']."' WHERE ID_Caja = $fkCaja";
       $error = $omodelo->_insertar($query);
 
@@ -222,6 +242,11 @@ class cajas {
     }else if($tipo == 'tomarCaja'){
       $idCaja = $omodelo->link->real_escape_string($idCaja);
 
+      if (offlineCajaBloqueada($omodelo, $_SESSION['user_punto_bd'], $idCaja)) {
+        echo 'Caja bloqueada porque se está utilizando offline';
+        return;
+      }
+
       $query = "UPDATE cajas SET FK_Usuario = '".$_SESSION['user_punto_venta']['ID_Usuario']."' WHERE ID_Caja = '$idCaja'";
       $error = $omodelo->_insertar($query);
 
@@ -241,6 +266,11 @@ class cajas {
     $omodelo = new m_modelo();
     extract($_POST);
     $idCaja = $omodelo->link->real_escape_string(trim($idCaja));
+
+    if (offlineCajaBloqueada($omodelo, $_SESSION['user_punto_bd'], $idCaja)) {
+      echo 'Caja bloqueada porque se está utilizando offline';
+      return;
+    }
 
     $query = "DELETE FROM cajas WHERE ID_Caja = '$idCaja'";
     $row = $omodelo->_insertar($query);

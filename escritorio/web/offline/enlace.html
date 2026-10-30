@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+	<meta charset="utf-8">
+	<title>VentasTool | Enlazar equipo</title>
+	<link rel="shortcut icon" href="vistas/assets/images/logos/v.png">
+	<link rel="stylesheet" href="vistas/assets/plugins/bootstrap/css/bootstrap.min.css">
+	<link rel="stylesheet" href="vistas/assets/plugins/fontawesome/css/all.css">
+	<link rel="stylesheet" href="vistas/assets/css/style.css">
+	<link rel="stylesheet" href="vistas/assets/css/theme-ventastool.css">
+	<link rel="stylesheet" href="offline/offline.css">
+</head>
+<body>
+	<div class="vt-login-page">
+		<div class="vt-login-brand-panel">
+			<div class="vt-login-logo-box">
+				<img src="vistas/assets/images/logos/largo.png" alt="VentasTool">
+			</div>
+			<h2>Vende aunque no tengas internet</h2>
+			<p class="vt-login-tagline">Enlaza este equipo con tu cuenta de VentasTool. Tus productos, inventario y promociones se guardan aquí y tus ventas se suben cuando tú decidas.</p>
+		</div>
+		<div class="vt-login-form-panel">
+			<div class="auth-content">
+				<div class="card">
+					<form id="formEnlace" class="card-body text-center">
+						<p class="vt-login-welcome">Enlazar este equipo</p>
+						<p class="vt-login-sub">En el sistema web entra a <b>Dispositivos offline</b>, presiona <b>Agregar dispositivo</b>, elige la caja y escribe aquí el código.</p>
+						<div id="mensaje"></div>
+						<div class="form-floating mb-3">
+							<input type="text" class="form-control text-center" id="codigo" placeholder="XXXX-XXXX" maxlength="9" autocomplete="off" style="font-size: 28px; letter-spacing: 4px; text-transform: uppercase;" autofocus>
+							<label for="codigo">Código de enlace</label>
+						</div>
+						<div class="d-grid">
+							<button type="submit" class="btn btn-danger btn-lg" id="bEnlazar">Enlazar <i class="fas fa-link"></i></button>
+						</div>
+						<p class="text-muted small mt-3 mb-0">Necesitas internet solo para este paso.</p>
+					</form>
+				</div>
+			</div>
+		</div>
+	</div>
+	<script>
+		const form = document.getElementById('formEnlace');
+		const mensaje = document.getElementById('mensaje');
+		const boton = document.getElementById('bEnlazar');
+
+		function aviso(texto, tipo) {
+			mensaje.innerHTML = '<div class="alert alert-' + tipo + '"></div>';
+			mensaje.firstChild.textContent = texto;
+		}
+
+		form.addEventListener('submit', async (e) => {
+			e.preventDefault();
+			const codigo = document.getElementById('codigo').value.trim();
+			if (codigo.replace(/[^A-Za-z0-9]/g, '').length !== 8) {
+				aviso('El código tiene 8 caracteres, por ejemplo K7M4-Q9TX.', 'warning');
+				return;
+			}
+			boton.disabled = true;
+			aviso('Enlazando y bajando productos, inventario y usuarios...', 'info');
+			const res = await fetch('index.php', { method: 'POST', body: new URLSearchParams({ accion: 'enlazar', codigo }) });
+			const texto = (await res.text()).trim();
+			if (texto.startsWith('Correcto')) {
+				const extra = texto.split('~')[1];
+				if (extra) {
+					aviso(extra, 'warning');
+					setTimeout(() => location.reload(), 4000);
+				} else {
+					location.reload();
+				}
+			} else {
+				aviso(texto.replace(/^Error~/, ''), 'danger');
+				boton.disabled = false;
+			}
+		});
+	</script>
+</body>
+</html>

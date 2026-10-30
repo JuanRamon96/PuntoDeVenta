@@ -1,0 +1,51 @@
+<div class="row" style="margin-top: -65px;">
+  <div class="col-12 text-end">
+    <button type="button" class="btn btn-outline-danger btn-sm cargarVista" carga="v_inventario_offline" titulo="Inventario" id="bRecargar"><i class="fa-solid fa-rotate-right"></i></button>
+  </div>
+</div>
+<br>
+<div class="row">
+  <div class="col-sm-12">
+    <div class="card">
+      <div class="card-body">
+        <div class="row align-items-center">
+          <div class="col-md-7"><span class="vt-offline-nota">Existencias de este equipo: lo que había al sincronizar menos lo vendido aquí que aún no se sube.</span></div>
+          <div class="col-md-5 text-end">
+            <button type="button" class="btn btn-primary bSincronizarOffline"><i class="fas fa-rotate"></i> Sincronizar</button>
+          </div>
+        </div>
+        <br>
+        <div class="row">
+          <div class="col-12 table-responsive">
+            <table id="tablaInventarioOffline" class="myDataTable table table-hover table-striped table-bordered text-center" width="100%" style="font-size: 12px;">
+              <thead>
+                <tr>
+                  <th>Código</th>
+                  <th>Descripción</th>
+                  <th>Existencia</th>
+                  <th>Costo</th>
+                  <th>Precio</th>
+                  <th>Precio Mayoreo</th>
+                  <th orden="No">Totales</th>
+                  <th orden="No">Lotes</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  function v_inventario_offline() {
+    ajaxMyDatatable({
+      table: $('#tablaInventarioOffline'),
+      colums: ['Codigo', 'Descripcion', 'Existencia', 'Costo', 'Precio', 'Precio_Mayoreo', 'Totales', 'Lotes'],
+      sort: [0, 'asc'],
+      url: 'index.php',
+      params: { metodo: 'consultar', accion: 'inventario' }
+    });
+  }
+</script>

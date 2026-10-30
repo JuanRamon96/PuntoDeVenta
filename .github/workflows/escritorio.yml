@@ -1,0 +1,35 @@
+# Compila los instaladores de la app de escritorio offline (Windows .exe y Mac .dmg).
+# Se corre a mano desde GitHub: Actions > App de escritorio > Run workflow. Los instaladores quedan en "Artifacts".
+name: App de escritorio
+
+on:
+  workflow_dispatch:
+
+jobs:
+  compilar:
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            comando: dist:win
+          - os: macos-latest
+            comando: dist:mac -- --x64 --arm64
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: escritorio
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm run ${{ matrix.comando }}
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+      - uses: actions/upload-artifact@v4
+        with:
+          name: instaladores-${{ matrix.os }}
+          path: |
+            escritorio/dist/*.exe
+            escritorio/dist/*.dmg

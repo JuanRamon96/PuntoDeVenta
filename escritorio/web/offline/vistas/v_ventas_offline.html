@@ -1,0 +1,52 @@
+<div class="row" style="margin-top: -65px;">
+  <div class="col-12 text-end">
+    <button type="button" class="btn btn-outline-danger btn-sm cargarVista" carga="v_ventas_offline" titulo="Ventas" id="bRecargar"><i class="fa-solid fa-rotate-right"></i></button>
+  </div>
+</div>
+<br>
+<div class="row">
+  <div class="col-sm-12">
+    <div class="card">
+      <div class="card-body">
+        <div class="row align-items-center">
+          <div class="col-md-7"><span class="vt-offline-nota">Ventas hechas en este equipo que aún no se suben. Puedes eliminarlas mientras estén aquí; al subirlas pasan al sistema web.</span></div>
+          <div class="col-md-5 text-end">
+            <button type="button" class="btn btn-success bSubirVentasOffline"><i class="fas fa-cloud-arrow-up"></i> Subir ventas (<span class="vtPendientesSubir">0</span>)</button>
+          </div>
+        </div>
+        <br>
+        <div class="row">
+          <div class="col-12 table-responsive">
+            <table id="tablaVentasOffline" class="myDataTable table table-hover table-striped table-bordered text-center" width="100%" style="font-size: 12px;">
+              <thead>
+                <tr>
+                  <th>Folio</th>
+                  <th>Fecha</th>
+                  <th>Cliente</th>
+                  <th orden="No">Atendió</th>
+                  <th>Tipo de pago</th>
+                  <th>Total</th>
+                  <th orden="No">Estatus</th>
+                  <th orden="No">Acciones</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  function v_ventas_offline() {
+    ajaxMyDatatable({
+      table: $('#tablaVentasOffline'),
+      colums: ['Folio', 'Fecha', 'Cliente', 'Usuario', 'Tipo', 'Total', 'Estatus', 'Acciones'],
+      sort: [0, 'desc'],
+      url: 'index.php',
+      params: { metodo: 'consultar', accion: 'ventas' }
+    });
+    offlinePeticion('estado').then(function (r) { offlinePintarEstado(r.estado); });
+  }
+</script>

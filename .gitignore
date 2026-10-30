@@ -1,0 +1,8 @@
+app/modelo/config/checador_clave.php
+
+# App de escritorio offline
+escritorio/node_modules/
+escritorio/dist/
+escritorio/web/vistas/
+escritorio/web/controladores/
+escritorio/pruebas/usuario-prueba.local.json
