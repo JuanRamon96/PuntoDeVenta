@@ -984,7 +984,9 @@ class caja
         FK_Clasificacion, 
         IFNULL(Cantidad, 0) AS Existencia 
       FROM productos LEFT JOIN inventario ON FK_Producto = ID_Producto 
-      WHERE FK_Clasificacion = '$clasificacion' ORDER BY Descripcion";
+      WHERE " . ($clasificacion === '0'
+        ? "(FK_Clasificacion IS NULL OR FK_Clasificacion NOT IN (SELECT ID_Clasificacion FROM clasificaciones))"
+        : "FK_Clasificacion = '$clasificacion'") . " ORDER BY Descripcion";
 
       $row = $omodelo->_consultar($query);
       $numerofilas = $omodelo->numerofilas;
@@ -1056,11 +1058,20 @@ class caja
           }
         }
       }
+
+      if ($productos == '') {
+        $productos = '<div class="col-12 text-center text-muted" style="padding-top: 20vh;"><h5>No hay productos en esta clasificación.</h5></div>';
+      }
       echo $productos;
     } else if ($tipo == 'clasificaciones') {
       $clasificaciones = '';
 
-      $query = "SELECT ID_Clasificacion, Nombre, Foto FROM clasificaciones WHERE (SELECT COUNT(*) FROM productos WHERE FK_Clasificacion = ID_Clasificacion) > 0 ORDER BY Nombre";
+      // ID 0 = tarjeta "Sin clasificación" para los productos que no tienen una (ver prodTienda)
+      $query = "SELECT ID_Clasificacion, Nombre, Foto, 0 AS Orden FROM clasificaciones WHERE (SELECT COUNT(*) FROM productos WHERE FK_Clasificacion = ID_Clasificacion) > 0
+        UNION ALL
+        SELECT 0, 'Sin clasificación', '', 1 FROM DUAL
+        WHERE EXISTS (SELECT 1 FROM productos WHERE FK_Clasificacion IS NULL OR FK_Clasificacion NOT IN (SELECT ID_Clasificacion FROM clasificaciones))
+        ORDER BY Orden, Nombre";
       $row = $omodelo->_consultar($query);
       $numerofilas = $omodelo->numerofilas;
 
@@ -1084,6 +1095,10 @@ class caja
             </div>';
           }
         }
+      }
+
+      if ($clasificaciones == '') {
+        $clasificaciones = '<div class="col-12 text-center text-muted" style="padding-top: 20vh;"><h5>No hay productos para mostrar.</h5><p>Da de alta productos para verlos aquí.</p></div>';
       }
 
       echo $clasificaciones;

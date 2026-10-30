@@ -1232,6 +1232,8 @@ $(document).on('keydown', function (evt) {
     evt.preventDefault();
   }
   if (!$("#modalCaja").is(':visible')) return
+  // Mientras se edita precio/cantidad en la tabla, que +, -, Supr y flechas no muevan otros renglones
+  if ($(evt.target).is('#precioProdCaja, #cantidadProdCaja')) return
 
   if (overlayEscanerCajaVisible()) {
     if (evt.key === "Escape") {
@@ -3960,7 +3962,9 @@ jQuery(document).ready(function ($) {
   //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
   //>>>>>>>>>>>>>>>>>>>>>>>>>>>>Cambiar precio>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
   //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> 
-  $(document).on('dblclick', '#tablaCaja tbody tr td:eq(2)', function () {
+  // nth-child y no :eq(): en un selector delegado :eq() solo toma la celda del primer renglón
+  $(document).on('dblclick', '#tablaCaja tbody tr > td:nth-child(3)', function () {
+    if ($(this).children('input').length) return;
     var fila = $(this).parent();
 
     if (filaTienePromocionActiva(fila)) {
@@ -3996,6 +4000,30 @@ jQuery(document).ready(function ($) {
     fila.attr('attrUsaMayoreo', '0');
     recalcularFilaProducto(fila, cantidadActual);
 
+    $("#barCodeV").focus();
+  });
+
+  //>>>>>>>>>>>>>>>>>>>>>>>>>>>>Cambiar cantidad>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+  $(document).on('dblclick', '#tablaCaja tbody tr > td:nth-child(4)', function () {
+    if ($(this).children('input').length) return;
+    var cantidad = $(this).children('span.cantidad').text().replace(',', '');
+    $(this).html('<input type="number" id="cantidadProdCaja" min="0" step="any" value="' + cantidad + '" attrAnterior="' + cantidad + '" style="padding: 2px 0px; width: 70px; text-align: center; border: none; z-index: 1; -webkit-appearance: none;" />');
+    $("#cantidadProdCaja").focus().select();
+  });
+
+  $(document).on('keypress', '#cantidadProdCaja', function (e) {
+    if (e.which == 13) {
+      e.preventDefault();
+      $(this).blur();
+    }
+  });
+
+  $(document).on('focusout', '#cantidadProdCaja', function () {
+    let valor = parseFloat($(this).val());
+    // Vacío o inválido conserva la cantidad anterior; 0 elimina el renglón (igual que la tecla -)
+    if (isNaN(valor)) valor = parseFloat($(this).attr('attrAnterior'));
+
+    recalcularFilaProducto($(this).closest('tr'), valor);
     $("#barCodeV").focus();
   });
 
