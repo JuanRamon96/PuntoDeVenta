@@ -19,3 +19,17 @@
 .pcoded-header #vtOfflineEstado * {
   color: #1d2a3a !important;
 }
+
+/* El menú lateral y el contenido empiezan debajo del encabezado (51px); con 100vh la página quedaba
+   más alta que la ventana y aparecía la barra de desplazamiento sin necesidad */
+.pcoded-navbar,
+.pcoded-navbar .navbar-wrapper,
+.pcoded-navbar .navbar-content {
+  height: calc(100vh - 51px) !important;
+  min-height: 0 !important;
+}
+
+.pcoded-main-container {
+  min-height: calc(100vh - 51px) !important;
+  height: auto !important;
+}
