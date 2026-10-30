@@ -20,7 +20,7 @@
 	<link rel="stylesheet" href="vistas/assets/plugins/fancybox/dist/jquery.fancybox.min.css">
 	<link rel="stylesheet" href="vistas/assets/plugins/leaflet/leaflet.css">
 	<link rel="stylesheet" href="vistas/assets/css/style.css">
-	<link rel="stylesheet" href="vistas/assets/css/theme-ventastool.css?v=24">
+	<link rel="stylesheet" href="vistas/assets/css/theme-ventastool.css?v=25">
 </head>
 
 <body class="bodyMenu">
