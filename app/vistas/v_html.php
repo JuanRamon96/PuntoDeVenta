@@ -1327,7 +1327,7 @@
 	<script src="vistas/assets/js/clientes.js"></script>
 	<script src="vistas/assets/js/ventas.js?v=2"></script>
 	<script src="vistas/assets/js/cajas.js"></script>
-	<script src="vistas/assets/js/caja.js?v=17"></script>
+	<script src="vistas/assets/js/caja.js?v=18"></script>
 	<script src="vistas/assets/js/proveedores.js"></script>
 	<script src="vistas/assets/js/compras.js?v=1"></script>
 	<script src="vistas/assets/js/hacerCompra.js?v=1"></script>
