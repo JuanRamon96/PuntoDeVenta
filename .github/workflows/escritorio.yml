@@ -1,9 +1,12 @@
 # Compila los instaladores de la app de escritorio offline (Windows .exe y Mac .dmg).
-# Se corre a mano desde GitHub: Actions > App de escritorio > Run workflow. Los instaladores quedan en "Artifacts".
+# Se corre al subir una etiqueta escritorio-v* (ej. escritorio-v1.0.0) o a mano desde Actions. Los instaladores quedan en "Artifacts".
 name: App de escritorio
 
 on:
   workflow_dispatch:
+  push:
+    tags:
+      - 'escritorio-v*'
 
 jobs:
   compilar:
