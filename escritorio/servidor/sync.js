@@ -96,6 +96,8 @@ async function bajar() {
     // Lo ya subido ya está en el servidor: se limpia (los triggers no devuelven inventario de ventas subidas)
     const subidas = db.todos('SELECT ID_Venta FROM ventas WHERE Subido = 1').map((v) => v.ID_Venta);
     for (const id of subidas) {
+      db.db.run('DELETE FROM devoluciones WHERE FK_Detalle_Venta IN (SELECT ID_Detalle_Venta FROM detalles_ventas WHERE FK_Venta = ?)', [id]);
+      db.db.run('DELETE FROM ventas_pagos WHERE FK_Venta = ?', [id]);
       db.db.run('DELETE FROM detalles_ventas_lotes WHERE FK_Detalle_Venta IN (SELECT ID_Detalle_Venta FROM detalles_ventas WHERE FK_Venta = ?)', [id]);
       db.db.run('DELETE FROM impuestos_ventas WHERE FK_Detalle_Venta IN (SELECT ID_Detalle_Venta FROM detalles_ventas WHERE FK_Venta = ?)', [id]);
       db.db.run('DELETE FROM detalles_ventas WHERE FK_Venta = ?', [id]);
@@ -126,8 +128,10 @@ async function bajar() {
     }
 
     // Existencia local = servidor - ventas del equipo sin subir (solo las hechas con el catálogo de esta cuenta)
-    db.db.run(`UPDATE inventario SET Cantidad = Cantidad - IFNULL((SELECT SUM(d.Cantidad) FROM detalles_ventas d JOIN ventas v ON v.ID_Venta = d.FK_Venta
-      WHERE v.Subido = 0 AND v.Cuenta_Origen = ? AND d.FK_Producto = inventario.FK_Producto), 0)`, [r.cuenta]);
+    // (lo devuelto y lo cancelado con regreso a inventario no cuenta)
+    db.db.run(`UPDATE inventario SET Cantidad = Cantidad - IFNULL((SELECT SUM(d.Cantidad - IFNULL((SELECT SUM(x.Cantidad) FROM devoluciones x WHERE x.FK_Detalle_Venta = d.ID_Detalle_Venta), 0))
+      FROM detalles_ventas d JOIN ventas v ON v.ID_Venta = d.FK_Venta
+      WHERE v.Subido = 0 AND v.Cuenta_Origen = ? AND NOT (v.Estatus = 2 AND v.Regrezo_Inventario = 1) AND d.FK_Producto = inventario.FK_Producto), 0)`, [r.cuenta]);
     if (db.existeTabla('inventario_lotes') && db.todos('PRAGMA table_info(inventario_lotes)').length) {
       db.db.run(`UPDATE inventario_lotes SET Cantidad = Cantidad - IFNULL((SELECT SUM(l.Cantidad) FROM detalles_ventas_lotes l JOIN detalles_ventas d ON d.ID_Detalle_Venta = l.FK_Detalle_Venta
         JOIN ventas v ON v.ID_Venta = d.FK_Venta WHERE v.Subido = 0 AND v.Cuenta_Origen = ? AND l.FK_Lote = inventario_lotes.ID_Lote), 0)`, [r.cuenta]);
@@ -193,7 +197,7 @@ function paqueteSubida() {
 
   return turnos.map((t) => {
     const ventas = db.todos('SELECT * FROM ventas WHERE FK_Detalles_Caja = ? AND Subido = 0 ORDER BY ID_Venta', [t.ID_Detalle_Caja]).map((v) => {
-      const productos = db.todos('SELECT * FROM detalles_ventas WHERE FK_Venta = ?', [v.ID_Venta]).map((d) => ({
+      const productos = db.todos('SELECT * FROM detalles_ventas WHERE FK_Venta = ? ORDER BY ID_Detalle_Venta', [v.ID_Venta]).map((d) => ({
         id: d.FK_Producto, codigo: d.Codigo, descripcion: d.Descripcion, precio: d.Precio, cantidad: d.Cantidad, descuento: d.Descuento, total: d.Total,
         impuestos: db.todos('SELECT * FROM impuestos_ventas WHERE FK_Detalle_Venta = ?', [d.ID_Detalle_Venta])
           .map((i) => ({ nombre: i.Nombre, porcentaje: i.Porcentaje, clave: i.Clave_CFDI, clase: i.Clase, factor: i.Tipo_Factor })),
@@ -206,6 +210,25 @@ function paqueteSubida() {
         total: v.Total, tipoPago: v.Tipo_Pago, pago: v.Pago, cambio: v.Cambio, cliente: v.FK_Cliente, fkDireccion: v.FK_Direccion,
         descuento: v.Descuento, turno: v.Turno, productos
       };
+
+      // Devoluciones (por posición del renglón) y totales como estaban antes de devolver: el servidor las vuelve a aplicar con su trigger
+      const detallesIds = db.todos('SELECT ID_Detalle_Venta FROM detalles_ventas WHERE FK_Venta = ? ORDER BY ID_Detalle_Venta', [v.ID_Venta]).map((d) => d.ID_Detalle_Venta);
+      venta.devoluciones = [];
+      let montoDevuelto = 0;
+      for (const x of db.todos(`SELECT x.FK_Detalle_Venta, x.Cantidad, d.Total, d.Cantidad AS Vendida FROM devoluciones x JOIN detalles_ventas d ON d.ID_Detalle_Venta = x.FK_Detalle_Venta
+        WHERE d.FK_Venta = ?`, [v.ID_Venta])) {
+        venta.devoluciones.push({ renglon: detallesIds.indexOf(x.FK_Detalle_Venta), cantidad: x.Cantidad });
+        montoDevuelto += x.Vendida > 0 ? (x.Total / x.Vendida) * x.Cantidad : 0;
+      }
+      venta.total = v.Total + montoDevuelto;
+      venta.cambio = v.Cambio - montoDevuelto;
+
+      venta.pagos = db.todos(`SELECT p.*, t.UUID AS TurnoUUID FROM ventas_pagos p LEFT JOIN detalles_caja t ON t.ID_Detalle_Caja = p.FK_Detalle_Caja WHERE p.FK_Venta = ? ORDER BY p.ID_Pago`, [v.ID_Venta])
+        .map((x) => ({ uuid: x.UUID, concepto: x.Concepto, monto: x.Monto, tipoPago: x.Tipo_Pago, detalles: x.Detalles, usuario: x.FK_Usuario, fecha: x.Fecha_Registro, turno: x.TurnoUUID }));
+
+      if (v.Estatus === 2) {
+        venta.cancelada = { fecha: v.Fecha_Cancelacion, regresarInventario: v.Regrezo_Inventario };
+      }
 
       // Cliente nuevo (ID negativo) o, si cambió la cuenta, sus datos para buscarlo por teléfono
       if (v.FK_Cliente < 0) {

@@ -113,35 +113,11 @@ $(document).on('click', '.bSubirVentasOffline', function () {
   });
 });
 
-// Pantalla Ventas (locales)
-$(document).on('click', '.bTicketVentaLocal', function () {
-  window.open('controladores/pdf/ticketVenta.php?id=' + $(this).attr('attrID'), '_blank', 'width=480,height=800');
-});
-
-$(document).on('click', '.bEliminarVentaLocal', function () {
-  const id = $(this).attr('attrID');
-  Swal.fire({
-    title: '¿Eliminar esta venta?',
-    text: 'Solo se borra de este equipo (aún no se ha subido). Las existencias se regresan al inventario.',
-    icon: 'warning',
-    showCancelButton: true,
-    confirmButtonColor: '#d33',
-    cancelButtonText: 'No, cancelar',
-    confirmButtonText: 'Sí, eliminar'
-  }).then(function (r) {
-    if (!r.value) {
-      return;
-    }
-    $.post('index.php', { metodo: 'eliminar', accion: 'ventas', idVenta: id }).done(function (res) {
-      if (String(res).trim() === 'Correcto') {
-        offlineRecargarVista();
-        offlinePeticion('estado').then(function (e) { offlinePintarEstado(e.estado); });
-      } else {
-        Swal.fire({ icon: 'error', title: 'Oops...', text: String(res).replace(/^Offline~/, '') });
-      }
-    });
-  });
-});
+// Impresión directa: la caja imprime con un iframe y el diálogo del navegador; en la app se manda a la
+// impresora configurada (la app intercepta las ventanas de tickets y las imprime sin diálogo)
+window.imprimirTicketCaja = function (src) {
+  window.open(src, '_blank');
+};
 
 // Caja cerrada: al presionar "Caja" se pide el monto de apertura y luego se abre la caja
 $(document).on('click', '#bMenuCajas', function () {

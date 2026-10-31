@@ -140,6 +140,57 @@ const pedir = (p) => rutas.atender('index.php', 'POST', p);
   assert.strictEqual(await pedir({ accion: 'login', correo: usuario.correo, contrasena: usuario.contrasena }), 'Correcto');
   assert.strictEqual(JSON.parse(await pedir({ metodo: 'detalles', accion: 'offline', tipo: 'subir' })).subidas, 1);
 
+  // 10. Ventas como en la web: abono, devolución, modificar y cancelar; todo se sube igual
+  await pedir({ metodo: 'insertar', accion: 'cajas', tipo: 'abrir', fkCaja: CAJA, montoCaja: '0' });
+  const precio = Number(prod.Precio);
+  const invServidor0 = Number(mysql(`SELECT Cantidad FROM inventario WHERE FK_Producto = ${idProd}`));
+  const idCliente = db.valor('SELECT ID_Cliente FROM clientes WHERE ID_Cliente > 0 LIMIT 1');
+  const vender = (cantidad, extra) => pedir(Object.assign({
+    metodo: 'insertar', accion: 'caja', tipo: 'venta', idCaja: CAJA, descuento: 0, total: precio * cantidad, tipoPago: 'Efectivo', pago: precio * cantidad, cambio: 0,
+    cliente: 0, fkDireccion: 0, detalles: '', turno: '',
+    productos: JSON.stringify([{ id: idProd, descripcion: prod.Descripcion, precio, cantidad, descuento: 0, total: precio * cantidad, impuestos: [], lotes: [] }])
+  }, extra)).then((r) => Number(r.split('~')[1]));
+
+  const vCredito = await vender(2, { tipoPago: 'Crédito', pago: precio, cliente: idCliente });
+  assert.strictEqual(db.valor('SELECT Estatus FROM ventas WHERE ID_Venta = ?', [vCredito]), 1);
+  assert.match(await pedir({ metodo: 'consultar', accion: 'ventas', tipo: 'ventas', buscar: '', limit: 25, pagina: 1, ordenColumna: 'Fecha', orden: 'desc' }), /bPagosVenta/);
+  assert.strictEqual(await pedir({ metodo: 'detalles', accion: 'ventas', tipo: 'pago', id: vCredito, importePagoVenta: String(precio), conceptoPagoVenta: 'Abono', tipoDePagoVenta: 'Efectivo', detallesPagoVenta: '', cajaPagoVenta: CAJA }), 'Correcto');
+  assert.strictEqual(db.valor('SELECT Estatus FROM ventas WHERE ID_Venta = ?', [vCredito]), 0, 'pagada por completo');
+  assert.match(await pedir({ metodo: 'detalles', accion: 'ventas', tipo: 'devoluciones', id: vCredito }), /<input/);
+  const idDet = db.valor('SELECT ID_Detalle_Venta FROM detalles_ventas WHERE FK_Venta = ?', [vCredito]);
+  assert.strictEqual(await pedir({ metodo: 'detalles', accion: 'ventas', tipo: 'devolucion', productos: JSON.stringify([{ id: idDet, cantidad: 1 }]) }), 'Correcto');
+  assert.strictEqual(db.valor('SELECT Total FROM ventas WHERE ID_Venta = ?', [vCredito]), precio, 'la devolución baja el total');
+
+  const vModificar = await vender(1);
+  const datosMod = JSON.parse(await pedir({ metodo: 'detalles', accion: 'ventas', tipo: 'modificar', idVenta: vModificar }));
+  assert.strictEqual(datosMod.Productos.length, 1);
+  assert.strictEqual(await pedir({ metodo: 'detalles', accion: 'ventas', tipo: 'modificarVenta', id: vModificar, cliente: 0, descuento: 0, total: precio * 3, pago: precio * 3, cambio: 0, tipoPago: 'Efectivo', detalles: 'Modificada',
+    productos: JSON.stringify([{ idProd: idProd, descripcion: prod.Descripcion, precio, cantidad: 3, descuento: 0, total: precio * 3, impuestos: [] }]) }), 'Correcto');
+
+  const vCancelar = await vender(1);
+  assert.strictEqual(await pedir({ metodo: 'modificar', accion: 'ventas', idVenta: vCancelar, regresarInventario: 1 }), 'Correcto');
+  assert.strictEqual(db.valor('SELECT Estatus FROM ventas WHERE ID_Venta = ?', [vCancelar]), 2);
+  // vendido neto: 2 - 1 devuelto + 3 modificada + 0 cancelada
+  assert.strictEqual(db.valor('SELECT Cantidad FROM inventario WHERE FK_Producto = ?', [idProd]), invServidor0 - 4);
+
+  const antes10 = Number(mysql('SELECT IFNULL(MAX(ID_Venta), 0) FROM ventas'));
+  assert.strictEqual(JSON.parse(await pedir({ metodo: 'detalles', accion: 'offline', tipo: 'subir' })).subidas, 3);
+  assert.strictEqual(Number(mysql(`SELECT Cantidad FROM inventario WHERE FK_Producto = ${idProd}`)), invServidor0 - 4, 'el servidor queda igual que el equipo');
+  assert.strictEqual(db.valor('SELECT Cantidad FROM inventario WHERE FK_Producto = ?', [idProd]), invServidor0 - 4);
+  const subidas = mysql(`SELECT CONCAT_WS('|', Estatus, Total, Detalles) FROM ventas WHERE ID_Venta > ${antes10} ORDER BY ID_Venta`).split(/\r?\n/);
+  assert.strictEqual(subidas.length, 3);
+  assert.ok(subidas[0].startsWith(`0|${precio}|`), 'crédito pagado y con devolución: ' + subidas[0]);
+  assert.match(subidas[2], /^2\|/, 'cancelada');
+  assert.strictEqual(mysql(`SELECT COUNT(*) FROM ventas_pagos WHERE FK_Venta > ${antes10}`), '1');
+  assert.strictEqual(mysql(`SELECT COUNT(*) FROM devoluciones d JOIN detalles_ventas x ON x.ID_Detalle_Venta = d.FK_Detalle_Venta WHERE x.FK_Venta > ${antes10}`), '1');
+
+  // 11. Impresión: versión para la impresora sin scripts del diálogo y con la escala
+  const paraImpresora = await rutas.atender('controladores/pdf/ticketPrueba.php', 'GET', { impresion: '1' });
+  assert.match(paraImpresora, /zoom: 0\.63/);
+  assert.doesNotMatch(paraImpresora, /<script/);
+  assert.strictEqual(await pedir({ metodo: 'modificar', accion: 'impresora', nombre: '', ancho: '58', escala: '', copias: '1' }), 'Correcto');
+  assert.match(await rutas.atender('controladores/pdf/ticketPrueba.php', 'GET', { impresion: '1' }), /zoom: 0\.44/);
+
   console.log('Todas las pruebas pasaron. Base de prueba en', carpeta);
 })().catch((e) => {
   console.error(e);

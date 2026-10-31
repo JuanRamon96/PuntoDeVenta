@@ -38,8 +38,9 @@ function layout() {
     '#menuProductos#': sesion.puede('Productos') ? itemMenu('v_productos_offline', 'Productos', 'bMenuProductos', 'fas fa-box') : '',
     '#menuInventario#': sesion.puede('Inventario') ? itemMenu('v_inventario_offline', 'Inventario', 'bMenuInventario', 'fas fa-clipboard-list') : '',
     '#menuPromociones#': sesion.puede('Promociones') ? itemMenu('v_promociones_offline', 'Promociones', 'bMenuPromociones', 'fa-solid fa-tags') : '',
-    '#menuVentas#': itemMenu('v_ventas_offline', 'Ventas', 'bMenuVentas', 'fas fa-dollar-sign'),
-    '#menuUsuarios#': sesion.puede('Usuarios') ? itemMenu('v_usuarios_offline', 'Usuarios', 'bMenuUsuarios', 'fas fa-users') : ''
+    '#menuVentas#': itemMenu('v_ventas', 'Ventas', 'bMenuVentas', 'fas fa-dollar-sign'),
+    '#menuUsuarios#': (sesion.puede('Usuarios') ? itemMenu('v_usuarios_offline', 'Usuarios', 'bMenuUsuarios', 'fas fa-users') : '') +
+      itemMenu('v_impresora_offline', 'Impresora', 'bMenuImpresora', 'fas fa-print')
   };
   pagina = pagina.replace(/#menu[A-Za-z]+#/g, (marca) => menus[marca] || '');
 
@@ -68,7 +69,12 @@ function contenido(vista) {
     // Misma vista de la web, sin botones de administración
     return leer('vistas/v_cajas.php').replace('#bCortes#', '').replace('#bAgregar#', '');
   }
-  const propias = ['v_ventas_offline', 'v_productos_offline', 'v_inventario_offline', 'v_promociones_offline', 'v_usuarios_offline'];
+  if (vista === 'v_ventas') {
+    // Misma pantalla de ventas de la web, con las ventas del equipo que aún no se suben
+    const caja = db.existeTabla('cajas') ? db.uno('SELECT ID_Caja, Nombre FROM cajas LIMIT 1') : null;
+    return leer('vistas/v_ventas.php').replace('#cajas#', caja ? `<option value="${caja.ID_Caja}">${html(caja.Nombre)}</option>` : '');
+  }
+  const propias = ['v_productos_offline', 'v_inventario_offline', 'v_promociones_offline', 'v_usuarios_offline', 'v_impresora_offline'];
   if (propias.includes(vista)) {
     return leer(`offline/vistas/${vista}.html`);
   }

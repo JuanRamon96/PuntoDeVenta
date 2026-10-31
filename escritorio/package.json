@@ -1,7 +1,7 @@
 {
   "name": "ventastool-offline",
   "productName": "VentasTool Offline",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Punto de venta VentasTool para vender sin internet",
   "main": "main.js",
   "private": true,

@@ -16,6 +16,8 @@ const modulos = {
   inventario: require('./modulos/inventario'),
   promociones: require('./modulos/promociones'),
   usuarios: require('./modulos/usuarios'),
+  clientes: require('./modulos/clientes'),
+  impresora: require('./modulos/impresora'),
   offline: require('./modulos/offline')
 };
 
@@ -26,6 +28,11 @@ function iniciar(opciones) {
   vistas.iniciar(opciones);
   tickets.iniciar(opciones);
   sync.iniciar(opciones);
+  modulos.impresora.iniciar(opciones);
+}
+
+function configImpresora() {
+  return modulos.impresora.config();
 }
 
 function paginaEnlace() {
@@ -33,14 +40,24 @@ function paginaEnlace() {
 }
 
 async function atender(ruta, metodoHttp, p) {
+  // impresion=1: versión para la impresora (sin el diálogo de la web y con la escala configurada)
+  const impresion = p.impresion === '1' ? configImpresora() : null;
   if (ruta === 'controladores/pdf/ticketVenta.php') {
-    return sesion.usuario() ? tickets.venta(p.id) : '';
+    return sesion.usuario() ? tickets.venta(p.id, impresion) : '';
   }
   if (ruta === 'controladores/pdf/ticketCaja.php') {
-    return sesion.usuario() ? tickets.corte(p.id) : '';
+    return sesion.usuario() ? tickets.corte(p.id, impresion) : '';
   }
   if (ruta === 'controladores/pdf/ticketAbrir.php') {
-    return sesion.usuario() ? tickets.abrir() : '';
+    return sesion.usuario() ? tickets.abrir(impresion) : '';
+  }
+  if (ruta === 'controladores/pdf/ticketPago.php') {
+    return sesion.usuario() ? tickets.pago(p.id, impresion) : '';
+  }
+  if (ruta === 'controladores/pdf/ticketPrueba.php') {
+    // La vista previa de la configuración manda la escala que se está probando
+    const cfg = { ...configImpresora(), ...(p.escala ? { escala: Number(p.escala) || 63 } : {}) };
+    return sesion.usuario() ? tickets.prueba(cfg) : '';
   }
   if (ruta !== 'index.php') {
     return 'Esta función solo está disponible en el sistema web.';
@@ -86,4 +103,4 @@ async function atender(ruta, metodoHttp, p) {
   return vistas.login();
 }
 
-module.exports = { iniciar, atender };
+module.exports = { iniciar, atender, configImpresora };

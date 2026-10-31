@@ -1,0 +1,121 @@
+<div class="row" style="margin-top: -65px;">
+  <div class="col-12 text-end">
+    <button type="button" class="btn btn-outline-danger btn-sm cargarVista" carga="v_impresora_offline" titulo="Impresora" id="bRecargar"><i class="fa-solid fa-rotate-right"></i></button>
+  </div>
+</div>
+<br>
+<div class="row">
+  <div class="col-lg-5">
+    <div class="card">
+      <div class="card-body">
+        <p class="h5 fw-bold">Impresora de tickets</p>
+        <p class="vt-offline-nota">Los tickets se imprimen directo en esta impresora, sin abrir ventanas.</p>
+        <form id="formImpresora">
+          <div class="form-floating mb-3">
+            <select id="impresoraNombre" class="form-select"></select>
+            <label for="impresoraNombre">Impresora</label>
+          </div>
+          <div class="form-floating mb-3">
+            <select id="impresoraAncho" class="form-select">
+              <option value="80">80 mm (la más común)</option>
+              <option value="58">58 mm</option>
+            </select>
+            <label for="impresoraAncho">Ancho del papel</label>
+          </div>
+          <label for="impresoraEscala" class="form-label">Tamaño del ticket: <b><span id="impresoraEscalaTexto"></span>%</b></label>
+          <input type="range" class="form-range" id="impresoraEscala" min="20" max="150" step="1">
+          <p class="vt-offline-nota mb-3">Si el ticket sale cortado a los lados, bájalo; si sale muy chico, súbelo.</p>
+          <div class="form-floating mb-3">
+            <input type="number" class="form-control" id="impresoraCopias" min="1" max="5">
+            <label for="impresoraCopias">Copias por ticket</label>
+          </div>
+          <div class="d-flex gap-2 justify-content-end">
+            <button type="button" class="btn btn-outline-secondary" id="bProbarImpresora"><i class="fas fa-print"></i> Imprimir prueba</button>
+            <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Guardar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-7">
+    <div class="card">
+      <div class="card-body">
+        <p class="h5 fw-bold">Así va a salir</p>
+        <p class="vt-offline-nota">Vista aproximada del ticket en el ancho de papel elegido.</p>
+        <div style="background: #e9ecef; padding: 20px; overflow: auto; max-height: 70vh; text-align: center;">
+          <div id="impresoraPapel" style="background: #fff; margin: 0 auto; box-shadow: 0 2px 8px rgba(0,0,0,.15); overflow: hidden;">
+            <iframe id="impresoraVista" style="border: 0; width: 100%; height: 900px;"></iframe>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  function v_impresora_offline() {
+    $.post('index.php', { metodo: 'detalles', accion: 'impresora', tipo: 'configuracion' }).done(function (res) {
+      const d = JSON.parse(res);
+      let opciones = '<option value="">Impresora predeterminada de Windows/Mac</option>';
+      d.impresoras.forEach(function (i) {
+        opciones += '<option value="' + $('<span>').text(i.nombre).html() + '">' + $('<span>').text(i.etiqueta + (i.porDefecto ? ' (predeterminada)' : '')).html() + '</option>';
+      });
+      $('#impresoraNombre').html(opciones).val(d.config.nombre);
+      $('#impresoraAncho').val(String(d.config.ancho)).data('sugerida', d.sugerida);
+      $('#impresoraEscala').val(d.config.escala);
+      $('#impresoraCopias').val(d.config.copias);
+      impresoraVista();
+    });
+  }
+
+  // Papel: 80 mm ≈ 302 px y 58 mm ≈ 219 px en pantalla; el ticket se reduce con la escala elegida
+  function impresoraVista() {
+    const ancho = Number($('#impresoraAncho').val());
+    const escala = Number($('#impresoraEscala').val());
+    $('#impresoraEscalaTexto').text(escala);
+    $('#impresoraPapel').css('width', Math.round(ancho * 96 / 25.4) + 'px');
+    const vista = document.getElementById('impresoraVista');
+    vista.onload = function () {
+      try {
+        vista.style.height = Math.ceil(vista.contentDocument.documentElement.getBoundingClientRect().height + 40) + 'px';
+      } catch (e) {}
+    };
+    vista.src = 'controladores/pdf/ticketPrueba.php?impresion=1&escala=' + escala + '&t=' + Date.now();
+  }
+
+  $(document).off('.impresora');
+  $(document).on('input.impresora', '#impresoraEscala', impresoraVista);
+  $(document).on('change.impresora', '#impresoraAncho', function () {
+    const sugerida = $(this).data('sugerida') || {};
+    $('#impresoraEscala').val(sugerida[$(this).val()] || 63);
+    impresoraVista();
+  });
+
+  function impresoraGuardar() {
+    return $.post('index.php', {
+      metodo: 'modificar', accion: 'impresora',
+      nombre: $('#impresoraNombre').val(), ancho: $('#impresoraAncho').val(), escala: $('#impresoraEscala').val(), copias: $('#impresoraCopias').val()
+    });
+  }
+
+  $(document).on('submit.impresora', '#formImpresora', function (e) {
+    e.preventDefault();
+    impresoraGuardar().done(function (res) {
+      Swal.fire(String(res).trim() === 'Correcto'
+        ? { icon: 'success', title: 'Guardado', text: 'Los tickets se imprimirán con esta configuración.', timer: 2000 }
+        : { icon: 'error', title: 'Oops...', text: res });
+    });
+  });
+
+  $(document).on('click.impresora', '#bProbarImpresora', function () {
+    impresoraGuardar().done(function () {
+      $.post('index.php', { metodo: 'detalles', accion: 'impresora', tipo: 'probar' }).done(function (res) {
+        res = String(res).trim();
+        if (res === 'Correcto') {
+          Swal.fire({ icon: 'success', title: 'Prueba enviada', text: 'Revisa el ticket que salió de la impresora.', timer: 2500 });
+        } else {
+          Swal.fire({ icon: 'error', title: 'No se pudo imprimir', text: res.replace(/^Offline~/, '') });
+        }
+      });
+    });
+  });
+</script>

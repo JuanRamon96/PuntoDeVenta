@@ -240,13 +240,17 @@ const consultas = {
     const idTurno = t ? t.ID_Detalle_Caja : 0;
     r.ventas = db.todos('SELECT SUM(Pago - Cambio) AS Total, Tipo_Pago FROM ventas WHERE FK_Detalles_Caja = ? GROUP BY Tipo_Pago', [idTurno])
       .map((v) => ({ Total: txt(v.Total), Tipo_Pago: v.Tipo_Pago }));
-    r.pagos_compras = []; // compras y abonos solo se registran en la web
-    r.pagos_ventas = [];
+    r.pagos_compras = []; // las compras solo se registran en la web
+    r.pagos_ventas = db.todos('SELECT SUM(Monto) AS Total, Tipo_Pago FROM ventas_pagos WHERE FK_Detalle_Caja = ? GROUP BY Tipo_Pago', [idTurno])
+      .map((x) => ({ Total: txt(x.Total), Tipo_Pago: x.Tipo_Pago }));
     r.movimientos = db.todos('SELECT Tipo, Monto, Descripcion, Fecha_Registro FROM movimientos_caja WHERE FK_Detalle_Caja = ? ORDER BY Fecha_Registro DESC', [idTurno])
       .map((m) => ({ Tipo: m.Tipo, Monto: txt(m.Monto), Descripcion: m.Descripcion, Fecha_Registro: fechaHumana(m.Fecha_Registro) }));
     r.usuarios = db.todos('SELECT SUM(Pago - Cambio) AS Total, FK_Usuario FROM ventas WHERE FK_Detalles_Caja = ? GROUP BY FK_Usuario', [idTurno])
       .map((u) => ({ Total: txt(u.Total), Usuario: nombreUsuario(u.FK_Usuario) }));
-    r.registros_pagos_ventas = [];
+    r.registros_pagos_ventas = db.todos(`SELECT p.FK_Venta, v.Folio, p.Monto, p.Tipo_Pago,
+        CASE WHEN v.FK_Cliente = 0 THEN 'Publico en General' ELSE IFNULL(c.Nombre || ' ' || IFNULL(c.Primer_Apellido, '') || ' ' || IFNULL(c.Segundo_Apellido, ''), '') END AS Cliente
+      FROM ventas_pagos p JOIN ventas v ON v.ID_Venta = p.FK_Venta LEFT JOIN clientes c ON c.ID_Cliente = v.FK_Cliente WHERE p.FK_Detalle_Caja = ?`, [idTurno])
+      .map((x) => ({ Folio: x.Folio, Monto: txt(x.Monto), Tipo_Pago: x.Tipo_Pago, Cliente: x.Cliente }));
     r.clasificaciones = db.todos(`SELECT IFNULL(c.Nombre, 'Sin clasificación') AS Clasificacion, SUM(dv.Cantidad) AS Cantidad,
         SUM(dv.Total * ((v.Pago - v.Cambio) / NULLIF((SELECT SUM(dv2.Total) FROM detalles_ventas dv2 WHERE dv2.FK_Venta = v.ID_Venta), 0))) AS Total
       FROM detalles_ventas dv INNER JOIN ventas v ON dv.FK_Venta = v.ID_Venta
@@ -279,6 +283,8 @@ module.exports = {
   promocionProducto,
   impuestosDe,
   existencia,
+  validarExistencias,
+  insertarDetalle,
 
   consultar(p) {
     return consultas[p.tipo] ? consultas[p.tipo](p) : SOLO_WEB;
@@ -546,7 +552,8 @@ module.exports = {
       }
       db.transaccion(() => {
         db.ejecutar('UPDATE ventas SET Total = Total - ?, Cambio = Pago - (Total - ?) WHERE ID_Venta = ?', [det.Total, det.Total, det.FK_Venta]);
-        // Los triggers devuelven inventario y lotes
+        // Los triggers devuelven inventario y lotes (las devoluciones primero, para no regresar dos veces)
+        db.ejecutar('DELETE FROM devoluciones WHERE FK_Detalle_Venta = ?', [det.ID_Detalle_Venta]);
         db.ejecutar('DELETE FROM detalles_ventas_lotes WHERE FK_Detalle_Venta = ?', [det.ID_Detalle_Venta]);
         db.ejecutar('DELETE FROM impuestos_ventas WHERE FK_Detalle_Venta = ?', [det.ID_Detalle_Venta]);
         db.ejecutar('DELETE FROM detalles_ventas WHERE ID_Detalle_Venta = ?', [det.ID_Detalle_Venta]);

@@ -32,14 +32,51 @@ function crearVentana() {
   ventana.maximize();
   ventana.loadURL('app://pos/index.php');
 
-  // Ligas externas (ej. mapas) en el navegador del sistema
   ventana.webContents.setWindowOpenHandler(({ url }) => {
+    // Tickets (venta, corte, reimpresión): se imprimen directo en la impresora configurada, sin diálogo ni vista previa
+    if (url.startsWith('app://') && url.includes('/controladores/pdf/')) {
+      imprimir(url).catch((e) => avisarError(e.message));
+      return { action: 'deny' };
+    }
     if (url.startsWith('app://')) {
       return { action: 'allow' };
     }
+    // Ligas externas (ej. mapas) en el navegador del sistema
     shell.openExternal(url);
     return { action: 'deny' };
   });
+}
+
+function avisarError(mensaje) {
+  if (ventana) {
+    ventana.webContents.executeJavaScript(`Swal.fire({ icon: 'error', title: 'No se pudo imprimir', html: ${JSON.stringify(mensaje)} + '<br><br>Revisa la impresora en el menú <b>Impresora</b>.' })`).catch(() => {});
+  }
+}
+
+// Carga el ticket en una ventana oculta y lo manda a la impresora con el ancho de papel configurado
+async function imprimir(url) {
+  const cfg = rutas.configImpresora();
+  const hoja = new BrowserWindow({ show: false, width: 600, height: 900, webPreferences: { contextIsolation: true } });
+  try {
+    await hoja.loadURL(url + (url.includes('?') ? '&' : '?') + 'impresion=1');
+    // Espera fuentes e imágenes (logo) antes de medir el alto
+    const altoPx = await hoja.webContents.executeJavaScript(`document.fonts.ready
+      .then(() => Promise.all([...document.images].map((i) => i.complete ? 1 : new Promise((r) => { i.onload = i.onerror = r; }))))
+      .then(() => Math.ceil(document.documentElement.getBoundingClientRect().height))`);
+    const altoMm = Math.max(60, Math.ceil((altoPx * 25.4) / 96) + 5);
+    await new Promise((resolve, reject) => {
+      hoja.webContents.print({
+        silent: true,
+        printBackground: true,
+        deviceName: cfg.nombre || '',
+        copies: cfg.copias,
+        margins: { marginType: 'none' },
+        pageSize: { width: cfg.ancho * 1000, height: altoMm * 1000 }
+      }, (ok, motivo) => (ok ? resolve() : reject(new Error(motivo === 'Print job canceled' ? 'Se canceló la impresión.' : `La impresora respondió: ${motivo || 'error desconocido'}.`))));
+    });
+  } finally {
+    hoja.destroy();
+  }
 }
 
 function archivoEstatico(ruta) {
@@ -65,7 +102,16 @@ async function manejar(request) {
   if (ruta.endsWith('.php')) {
     const params = Object.fromEntries(url.searchParams);
     if (request.method === 'POST') {
-      Object.assign(params, Object.fromEntries(new URLSearchParams(await request.text())));
+      if ((request.headers.get('content-type') || '').includes('multipart/form-data')) {
+        // Formularios con archivo (p. ej. comprobante de pago): los archivos no se guardan en el equipo
+        for (const [clave, valor] of (await request.formData()).entries()) {
+          if (typeof valor === 'string') {
+            params[clave] = valor;
+          }
+        }
+      } else {
+        Object.assign(params, Object.fromEntries(new URLSearchParams(await request.text())));
+      }
     }
     let cuerpo;
     try {
@@ -98,7 +144,13 @@ app.whenReady().then(async () => {
   Menu.setApplicationMenu(process.platform === 'darwin' ? Menu.buildFromTemplate([{ role: 'appMenu' }, { role: 'editMenu' }]) : null);
   await session.defaultSession.clearCache(); // al actualizar la app se usan sus archivos nuevos
   await db.abrir(path.join(app.getPath('userData'), 'ventastool.sqlite'));
-  rutas.iniciar({ carpetaDatos: app.getPath('userData'), web: WEB, version: app.getVersion() });
+  rutas.iniciar({
+    carpetaDatos: app.getPath('userData'),
+    web: WEB,
+    version: app.getVersion(),
+    impresoras: () => ventana.webContents.getPrintersAsync(),
+    imprimir
+  });
   protocol.handle('app', manejar);
   crearVentana();
 });

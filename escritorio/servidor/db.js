@@ -52,6 +52,42 @@ CREATE TRIGGER IF NOT EXISTS devuelve_lote BEFORE DELETE ON detalles_ventas_lote
 WHEN (SELECT v.Subido FROM ventas v JOIN detalles_ventas d ON d.FK_Venta = v.ID_Venta WHERE d.ID_Detalle_Venta = OLD.FK_Detalle_Venta) = 0 BEGIN
   UPDATE inventario_lotes SET Cantidad = Cantidad + OLD.Cantidad WHERE ID_Lote = OLD.FK_Lote;
 END;
+
+-- Abonos y devoluciones de ventas del equipo (mismas tablas y reglas que en MySQL)
+CREATE TABLE IF NOT EXISTS ventas_pagos (
+  ID_Pago INTEGER PRIMARY KEY AUTOINCREMENT, UUID TEXT NOT NULL, FK_Venta INTEGER NOT NULL, Concepto TEXT NOT NULL DEFAULT '', Monto REAL NOT NULL,
+  Tipo_Pago TEXT NOT NULL DEFAULT '', Detalles TEXT NOT NULL DEFAULT '', FK_Usuario INTEGER NOT NULL, FK_Detalle_Caja INTEGER NOT NULL DEFAULT 0,
+  Archivo TEXT NOT NULL DEFAULT '', Fecha_Registro TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS devoluciones (
+  ID_Devolucion INTEGER PRIMARY KEY AUTOINCREMENT, FK_Detalle_Venta INTEGER NOT NULL, Cantidad REAL NOT NULL);
+
+-- actualizar_venta / estatus_venta
+CREATE TRIGGER IF NOT EXISTS pago_completa_venta AFTER INSERT ON ventas_pagos
+WHEN (SELECT SUM(Monto) FROM ventas_pagos WHERE FK_Venta = NEW.FK_Venta) >= (SELECT Total - Pago + Cambio FROM ventas WHERE ID_Venta = NEW.FK_Venta) BEGIN
+  UPDATE ventas SET Estatus = 0 WHERE ID_Venta = NEW.FK_Venta;
+END;
+CREATE TRIGGER IF NOT EXISTS pago_borrado_venta AFTER DELETE ON ventas_pagos
+WHEN IFNULL((SELECT SUM(Monto) FROM ventas_pagos WHERE FK_Venta = OLD.FK_Venta), 0) < (SELECT Total - Pago + Cambio FROM ventas WHERE ID_Venta = OLD.FK_Venta)
+  AND (SELECT Subido FROM ventas WHERE ID_Venta = OLD.FK_Venta) = 0 BEGIN
+  UPDATE ventas SET Estatus = 1 WHERE ID_Venta = OLD.FK_Venta;
+END;
+
+-- trg_devoluciones_after_insert / after_delete: regresan inventario y ajustan el total de la venta
+CREATE TRIGGER IF NOT EXISTS devolucion_agregada AFTER INSERT ON devoluciones
+WHEN (SELECT Cantidad FROM detalles_ventas WHERE ID_Detalle_Venta = NEW.FK_Detalle_Venta) > 0 BEGIN
+  UPDATE inventario SET Cantidad = Cantidad + NEW.Cantidad WHERE FK_Producto = (SELECT FK_Producto FROM detalles_ventas WHERE ID_Detalle_Venta = NEW.FK_Detalle_Venta);
+  UPDATE ventas SET Total = Total - (SELECT Total / Cantidad * NEW.Cantidad FROM detalles_ventas WHERE ID_Detalle_Venta = NEW.FK_Detalle_Venta),
+    Cambio = Cambio + (SELECT Total / Cantidad * NEW.Cantidad FROM detalles_ventas WHERE ID_Detalle_Venta = NEW.FK_Detalle_Venta)
+  WHERE ID_Venta = (SELECT FK_Venta FROM detalles_ventas WHERE ID_Detalle_Venta = NEW.FK_Detalle_Venta);
+END;
+CREATE TRIGGER IF NOT EXISTS devolucion_borrada AFTER DELETE ON devoluciones
+WHEN (SELECT d.Cantidad FROM detalles_ventas d WHERE d.ID_Detalle_Venta = OLD.FK_Detalle_Venta) > 0
+  AND (SELECT v.Subido FROM ventas v JOIN detalles_ventas d ON d.FK_Venta = v.ID_Venta WHERE d.ID_Detalle_Venta = OLD.FK_Detalle_Venta) = 0 BEGIN
+  UPDATE inventario SET Cantidad = Cantidad - OLD.Cantidad WHERE FK_Producto = (SELECT FK_Producto FROM detalles_ventas WHERE ID_Detalle_Venta = OLD.FK_Detalle_Venta);
+  UPDATE ventas SET Total = Total + (SELECT Total / Cantidad * OLD.Cantidad FROM detalles_ventas WHERE ID_Detalle_Venta = OLD.FK_Detalle_Venta),
+    Cambio = Cambio - (SELECT Total / Cantidad * OLD.Cantidad FROM detalles_ventas WHERE ID_Detalle_Venta = OLD.FK_Detalle_Venta)
+  WHERE ID_Venta = (SELECT FK_Venta FROM detalles_ventas WHERE ID_Detalle_Venta = OLD.FK_Detalle_Venta);
+END;
 `;
 
 // Tablas que se reemplazan completas al sincronizar
@@ -73,6 +109,14 @@ async function abrir(ruta) {
   });
 
   db.exec(ESQUEMA_LOCAL);
+  // Columnas agregadas después de la versión 1.0.0 (bases ya creadas en equipos instalados)
+  const columnasVentas = todos('PRAGMA table_info(ventas)').map((c) => c.name);
+  if (!columnasVentas.includes('Fecha_Cancelacion')) {
+    db.exec("ALTER TABLE ventas ADD COLUMN Fecha_Cancelacion TEXT NOT NULL DEFAULT '0000-00-00 00:00:00'");
+  }
+  if (!columnasVentas.includes('Regrezo_Inventario')) {
+    db.exec('ALTER TABLE ventas ADD COLUMN Regrezo_Inventario INTEGER NOT NULL DEFAULT 0');
+  }
   // Clientes y domicilios nuevos creados en la caja: se guardan aparte para no perderlos al reemplazar la tabla del servidor
   db.exec(`CREATE TABLE IF NOT EXISTS clientes_nuevos (ID_Cliente INTEGER PRIMARY KEY, UUID TEXT NOT NULL, Nombre TEXT NOT NULL, Telefono TEXT NOT NULL DEFAULT '');
     CREATE TABLE IF NOT EXISTS direcciones_nuevas (ID_Direccion INTEGER PRIMARY KEY, UUID TEXT NOT NULL, FK_Cliente INTEGER NOT NULL, Calle TEXT, No_Exterior TEXT, No_Interior TEXT,

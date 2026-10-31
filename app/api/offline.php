@@ -336,7 +336,41 @@ if ($accion === 'subir') {
 				$errores[] = array('uuid' => $v['uuid'], 'error' => $res['mensaje']);
 				continue;
 			}
-			$anotar($v['uuid'], 'venta', $res['id']);
+			$idVentaSrv = intval($res['id']);
+
+			// Devoluciones hechas en el equipo: sus triggers regresan inventario y ajustan el total, igual que en la web
+			if (!empty($v['devoluciones'])) {
+				$renglones = filas("SELECT ID_Detalle_Venta FROM detalles_ventas WHERE FK_Venta = '$idVentaSrv' ORDER BY ID_Detalle_Venta");
+				foreach ($v['devoluciones'] as $dv) {
+					$r = intval($dv['renglon']);
+					if (isset($renglones[$r]) && floatval($dv['cantidad']) > 0) {
+						$db->query("INSERT INTO devoluciones SET FK_Detalle_Venta = '" . intval($renglones[$r]['ID_Detalle_Venta']) . "', Cantidad = '" . floatval($dv['cantidad']) . "'");
+					}
+				}
+			}
+
+			// Abonos a la venta
+			foreach (isset($v['pagos']) ? $v['pagos'] : array() as $pg) {
+				if ($yaSubido($pg['uuid'], 'pago')) {
+					continue;
+				}
+				$turnoPago = !empty($pg['turno']) ? $yaSubido($pg['turno'], 'turno') : 0;
+				$db->query("INSERT INTO ventas_pagos SET FK_Venta = '$idVentaSrv', Concepto = '" . esc($pg['concepto']) . "', Monto = '" . floatval($pg['monto']) . "', Tipo_Pago = '" . esc($pg['tipoPago']) . "', Detalles = '" . esc($pg['detalles']) . "', FK_Usuario = '" . $mapearUsuario($pg['usuario'], $origenVenta) . "', FK_Detalle_Caja = '" . ($turnoPago ? $turnoPago : intval($idTurno)) . "', Archivo = '', Fecha_Registro = '" . esc($pg['fecha']) . "'");
+				$anotar($pg['uuid'], 'pago', $db->insert_id);
+			}
+
+			// Cancelada en el equipo (como c_ventas::_modificar)
+			if (!empty($v['cancelada'])) {
+				$regresar = intval($v['cancelada']['regresarInventario']) == 1 ? 1 : 0;
+				$db->query("UPDATE ventas SET Estatus = 2, Fecha_Cancelacion = '" . esc($v['cancelada']['fecha']) . "', Regrezo_Inventario = '$regresar' WHERE ID_Venta = '$idVentaSrv'");
+				if ($regresar) {
+					foreach (filas("SELECT FK_Producto, Cantidad FROM detalles_ventas WHERE FK_Venta = '$idVentaSrv'") as $dv) {
+						$db->query("UPDATE inventario SET Cantidad = Cantidad + " . floatval($dv['Cantidad']) . " WHERE FK_Producto = '" . intval($dv['FK_Producto']) . "'");
+					}
+				}
+			}
+
+			$anotar($v['uuid'], 'venta', $idVentaSrv);
 			$db->commit();
 			$subidos[] = $v['uuid'];
 		}

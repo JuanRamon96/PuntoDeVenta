@@ -35,7 +35,11 @@ function nombreUsuario(id) {
   return u ? `${u.Nombre} ${u.Primer_Apellido} ${u.Segundo_Apellido}` : '';
 }
 
-function venta(id) {
+function venta(id, impresion) {
+  return paraImprimir(ventaHtml(id), impresion);
+}
+
+function ventaHtml(id) {
   const v = db.uno('SELECT * FROM ventas WHERE ID_Venta = ?', [id]);
   if (!v) {
     return 'Venta no encontrada';
@@ -143,7 +147,11 @@ function venta(id) {
     </script></html>`;
 }
 
-function corte(id) {
+function corte(id, impresion) {
+  return paraImprimir(corteHtml(id), impresion);
+}
+
+function corteHtml(id) {
   const t = db.uno('SELECT * FROM detalles_caja WHERE ID_Detalle_Caja = ?', [id]);
   if (!t) {
     return 'Corte no encontrado';
@@ -200,7 +208,15 @@ function corte(id) {
     return `<tr><td>${html(c.Clasificacion)}</td><td>${numero(c.Cantidad)}</td><td>$${numero(c.Total)}</td></tr>`;
   }).join('') : sinRegistros(3);
 
-  const balance = t.Monto_Abrir + totalVentas + entradas - salidas;
+  // Abonos a ventas a crédito registrados en este turno
+  const pagos = db.todos(`SELECT v.Folio, p.Monto, p.Tipo_Pago, CASE WHEN v.FK_Cliente = 0 THEN 'Publico en General' ELSE IFNULL(c.Nombre, '') END AS Cliente
+    FROM ventas_pagos p JOIN ventas v ON v.ID_Venta = p.FK_Venta LEFT JOIN clientes c ON c.ID_Cliente = v.FK_Cliente WHERE p.FK_Detalle_Caja = ?`, [id]);
+  const totalPagos = pagos.reduce((a, x) => a + Number(x.Monto), 0);
+  const tablaPagos = pagos.length
+    ? pagos.map((x) => `<tr><td colspan="3">${html(x.Cliente)}</td></tr><tr><td>${html(x.Folio)}</td><td>$${numero(x.Monto)}</td><td>${html(x.Tipo_Pago)}</td></tr>`).join('')
+    : sinRegistros(3);
+
+  const balance = t.Monto_Abrir + totalVentas + entradas + totalPagos - salidas;
   const cerrado = t.Fecha_Cierre !== '0000-00-00 00:00:00';
 
   return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Ticket</title><style>${estilos('ticketCaja.php')}</style></head>
@@ -219,7 +235,9 @@ function corte(id) {
       <table><caption>Ventas y pagos</caption><thead><tr><th>Tipo Pago</th><th>Total</th></tr></thead><tbody>${tablaVentas}</tbody></table>
       <table><caption>Ventas por usuario</caption><thead><tr><th>Tipo</th><th>Total</th></tr></thead><tbody>${tablaUsuarios}</tbody></table>
       <table><caption>Movimientos</caption><thead><tr><th>Fecha</th><th>Tipo</th><th>Monto</th></tr></thead><tbody>${tablaMovimientos}</tbody></table>
-      <table><caption>Ventas por clasificación</caption><thead><tr><th>Clasificación</th><th>Cantidad</th><th>Total</th></tr></thead><tbody>${tablaClas}</tbody>
+      <table><caption>Detalles Pagos Ventas</caption><thead><tr><th>Folio de Venta</th><th>Monto</th><th>Tipo Pago</th></tr></thead><tbody>${tablaPagos}</tbody>
+        <tfoot><tr><th>Total</th><th>$${numero(totalPagos)}</th></tr></tfoot></table>
+            <table><caption>Ventas por clasificación</caption><thead><tr><th>Clasificación</th><th>Cantidad</th><th>Total</th></tr></thead><tbody>${tablaClas}</tbody>
         <tfoot><tr><th>Total</th><th>${numero(cantClas)}</th><th>$${numero(dineroClas)}</th></tr></tfoot></table>
     </div>
   </body>
@@ -227,11 +245,74 @@ function corte(id) {
 }
 
 // ticketAbrir.php: solo abre el cajón de dinero (la impresora lo abre al recibir algo que imprimir)
-function abrir() {
-  return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Ticket</title>
+function abrir(impresion) {
+  return paraImprimir(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Ticket</title>
     <style>* { box-sizing: border-box; font-family: "Consolas", "Lucida Console", "Courier New", monospace; margin: 0; padding: 0; } body { display: flex; justify-content: center; align-items: center; flex-flow: column nowrap; padding: 0.5rem; max-width: 410px; width: 410px; }</style>
     </head><body onafterprint="funcionDespues()"><b>Abrir</b></body>
-    <script>function funcionDespues() { setTimeout(function () { parent.document.getElementById("bAbrirCaja").click(); }, 300); }</script></html>`;
+    <script>function funcionDespues() { setTimeout(function () { parent.document.getElementById("bAbrirCaja").click(); }, 300); }</script></html>`, impresion);
 }
 
-module.exports = { iniciar, venta, corte, abrir };
+// Versión para la impresora de la app: sin los scripts de impresión de la web (que abren el diálogo),
+// con la escala configurada y sin el espacio en blanco largo del final
+function paraImprimir(pagina, impresion) {
+  if (!impresion) {
+    return pagina;
+  }
+  const extra = `<style>
+    body { transform: none !important; zoom: ${impresion.escala / 100}; margin: 0 !important; }
+    .oculto-impresion, button { display: none !important; }
+    footer { margin-bottom: 30px !important; }
+  </style>`;
+  return pagina.replace(/<script[\s\S]*?<\/script>/g, '').replace(/ onafterprint="[^"]*"/, '').replace('</head>', extra + '</head>');
+}
+
+// ticketPago.php: comprobante de un abono
+function pago(id, impresion) {
+  const p = db.uno('SELECT * FROM ventas_pagos WHERE ID_Pago = ?', [id]);
+  if (!p) {
+    return 'Pago no encontrado';
+  }
+  const v = db.uno('SELECT * FROM ventas WHERE ID_Venta = ?', [p.FK_Venta]);
+  const c = v && v.FK_Cliente !== 0 ? db.uno('SELECT * FROM clientes WHERE ID_Cliente = ?', [v.FK_Cliente]) : null;
+  const abonado = Number(db.valor('SELECT IFNULL(SUM(Monto), 0) FROM ventas_pagos WHERE FK_Venta = ?', [p.FK_Venta]));
+  const restante = v ? Math.max(0, v.Total - (v.Pago - v.Cambio) - abonado) : 0;
+  const n = negocio();
+  return paraImprimir(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Ticket</title><style>${estilos('ticketVenta.php')}</style></head><body>
+    <button type="submit" class="oculto-impresion" onclick="window.print()">Imprimir</button>
+    <img class="logo-negocio" src="${n.logo}" width="220px" onerror="this.src='../../vistas/assets/images/logos/logo.png'" />
+    <p class="nombre-negocio">${html(n.nombre)}</p><p class="domicilio">${html(n.domicilio)}</p><p class="telefono">${html(n.telefono)}</p>
+    <div class="linea-punteada"></div>
+    <p class="folio-grande">Comprobante de pago</p>
+    <p class="fecha"><span>Fecha:</span> <span>${fechaHumana(p.Fecha_Registro)}</span></p>
+    <div class="linea-punteada"></div>
+    <div class="cliente-info"><p><strong>Cliente:</strong> ${html(c ? `${c.Nombre} ${c.Primer_Apellido || ''}` : 'Publico en General')}</p>
+      <p><strong>Venta:</strong> ${html(v ? v.Folio : '')}</p></div>
+    <div class="pago">
+      <p><span>Concepto:</span> <span>${html(p.Concepto)}</span></p>
+      <p><span>Tipo de pago:</span> <span>${html(p.Tipo_Pago)}</span></p>
+      <p class="total-final"><span>Abono:</span> <span>$${numero(p.Monto)}</span></p>
+      <p><span>Restante:</span> <span>$${numero(restante)}</span></p>
+    </div>
+    <footer><p class="vendedor">Atendió: ${html(nombreUsuario(p.FK_Usuario))}</p><p class="gracias">¡Gracias!</p></footer>
+    </body><script>window.print();</script></html>`, impresion);
+}
+
+// Ticket de muestra para la configuración de impresora
+function prueba(impresion) {
+  const n = negocio();
+  const filas = [['Producto de ejemplo', 2, 25.5], ['Otro producto con nombre largo', 1, 120]]
+    .map(([d, c, p]) => `<tr><td colspan="5" style="text-align: left;">${d}</td></tr><tr><td>${c}</td><td>$${numero(p)}</td><td>$0.00</td><td>Sub: $${numero(c * p)}</td><td>$${numero(c * p)}</td></tr>`).join('');
+  const total = 2 * 25.5 + 120;
+  return paraImprimir(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Ticket</title><style>${estilos('ticketVenta.php')}</style></head><body>
+    <img class="logo-negocio" src="${n.logo}" width="220px" onerror="this.src='../../vistas/assets/images/logos/logo.png'" />
+    <p class="nombre-negocio">${html(n.nombre)}</p><p class="domicilio">${html(n.domicilio)}</p><p class="telefono">${html(n.telefono)}</p>
+    <div class="linea-punteada"></div>
+    <p class="folio-grande">Ticket de prueba</p>
+    <div class="linea-punteada"></div>
+    <table class="tablaDetalles"><thead><tr><th>Cant.</th><th>Precio</th><th>Desc.</th><th>Impto.</th><th>Total</th></tr></thead><tbody>${filas}</tbody></table>
+    <div class="pago"><p class="total-final"><span>Total:</span> <span>$${numero(total)}</span></p></div>
+    <footer><p class="gracias">¡Gracias por su compra!</p><p class="text-center m-0">www.bigtool.mx</p></footer>
+    </body></html>`, impresion);
+}
+
+module.exports = { iniciar, venta, corte, abrir, prueba, pago };
