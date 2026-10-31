@@ -29,7 +29,7 @@ fs.rmSync(path.join(destino, 'controladores'), { recursive: true, force: true })
 copiar(path.join(raiz, 'vistas'), path.join(destino, 'vistas'));
 // Plantillas de tickets: solo se leen sus estilos
 fs.mkdirSync(path.join(destino, 'controladores', 'pdf'), { recursive: true });
-for (const f of ['ticketVenta.php', 'ticketCaja.php']) {
+for (const f of ['ticketVenta.php', 'ticketCaja.php', 'ticketPago.php']) {
   fs.copyFileSync(path.join(raiz, 'controladores', 'pdf', f), path.join(destino, 'controladores', 'pdf', f));
 }
 console.log('Interfaz web copiada a', destino);

@@ -52,8 +52,10 @@ function ventaHtml(id) {
     : 'Publico en General';
 
   let tabla = '<table class="tablaDetalles"><thead><tr><th>Cant.</th><th>Precio</th><th>Desc.</th><th>Impto.</th><th>Total</th></tr></thead><tbody>';
-  for (const d of db.todos('SELECT * FROM detalles_ventas WHERE FK_Venta = ?', [id])) {
-    const subtotal = d.Precio * d.Cantidad;
+  for (const d of db.todos(`SELECT d.*, IFNULL((SELECT SUM(x.Cantidad) FROM devoluciones x WHERE x.FK_Detalle_Venta = d.ID_Detalle_Venta), 0) AS Devolucion
+    FROM detalles_ventas d WHERE d.FK_Venta = ? ORDER BY d.ID_Detalle_Venta`, [id])) {
+    const cantidad = d.Cantidad - d.Devolucion; // como la web: se muestra lo que quedó después de devoluciones
+    const subtotal = d.Precio * cantidad;
     const subDes = subtotal - d.Descuento;
     let impuestos = '';
     for (const i of db.todos('SELECT * FROM impuestos_ventas WHERE FK_Detalle_Venta = ?', [d.ID_Detalle_Venta])) {
@@ -74,16 +76,20 @@ function ventaHtml(id) {
       }
     }
 
-    tabla += `<tr><td colspan="5" style="text-align: left;">${html(d.Descripcion)}${lotes}</td></tr>
-      <tr><td>${redondear(d.Cantidad)}</td><td>$${numero(d.Precio)}</td>
+    tabla += `<tr><td colspan="5" style="text-align: left;">${html(d.Descripcion)}${d.Devolucion > 0 ? ` <span style="color: #a7090c;">(Dev: ${numero(d.Devolucion)})</span>` : ''}${lotes}</td></tr>
+      <tr><td>${redondear(cantidad)}</td><td>$${numero(d.Precio)}</td>
       <td>$${numero(d.Descuento)}<br><span style="font-size: 16px;">(${subtotal > 0 ? numero((d.Descuento / subtotal) * 100) : 0}%)</span></td>
       <td><span style="font-size: 16px;">Sub:</span> $${numero(subDes)}${impuestos}</td><td>$${numero(d.Total)}</td></tr>`;
   }
   tabla += '</tbody></table>';
 
   let direccion = '';
+  let ubicacion = '';
   if (cliente) {
     const dom = v.FK_Direccion === 0 ? cliente : db.uno('SELECT * FROM direcciones_cliente WHERE ID_Direccion = ?', [v.FK_Direccion]);
+    if (dom && String(dom.Latitud || '') !== '' && String(dom.Longitud || '') !== '') {
+      ubicacion = `https://www.google.com/maps?q=${encodeURIComponent(dom.Latitud)},${encodeURIComponent(dom.Longitud)}`;
+    }
     if (dom) {
       if (dom.Calle) direccion = dom.Calle;
       if (dom.No_Exterior) direccion += ` #${dom.No_Exterior}`;
@@ -135,8 +141,11 @@ function ventaHtml(id) {
       <p class="gracias">¡Gracias por su compra!</p>
       <p class="asteriscos">********************************</p>
       <p class="text-center m-0">www.bigtool.mx</p>
+      ${ubicacion ? '<div class="contenedor-qr"><p class="qr-label">Ver ubicación</p><div id="qrcode"></div></div>' : ''}
     </footer>
     </body>
+    ${ubicacion ? `<script src="../../vistas/assets/plugins/qrcode.min.js"></script>
+    <script>new QRCode(document.getElementById("qrcode"), { text: ${JSON.stringify(ubicacion)}, width: 128, height: 128, colorDark: "#000000", colorLight: "#ffffff", correctLevel: QRCode.CorrectLevel.H });</script>` : ''}
     <script>
     window.print();
     function imprimir() { window.print(); }
@@ -237,6 +246,7 @@ function corteHtml(id) {
       <table><caption>Ventas y pagos</caption><thead><tr><th>Tipo Pago</th><th>Total</th></tr></thead><tbody>${tablaVentas}</tbody></table>
       <table><caption>Ventas por usuario</caption><thead><tr><th>Tipo</th><th>Total</th></tr></thead><tbody>${tablaUsuarios}</tbody></table>
       <table><caption>Movimientos</caption><thead><tr><th>Fecha</th><th>Tipo</th><th>Monto</th></tr></thead><tbody>${tablaMovimientos}</tbody></table>
+      <table><caption>Compras</caption><thead><tr><th>Tipo Pago</th><th>Total</th></tr></thead><tbody>${sinRegistros(2)}</tbody></table>
       <table><caption>Detalles Pagos Ventas</caption><thead><tr><th>Folio de Venta</th><th>Monto</th><th>Tipo Pago</th></tr></thead><tbody>${tablaPagos}</tbody>
         <tfoot><tr><th>Total</th><th>$${numero(totalPagos)}</th></tr></tfoot></table>
             <table><caption>Ventas por clasificación</caption><thead><tr><th>Clasificación</th><th>Cantidad</th><th>Total</th></tr></thead><tbody>${tablaClas}</tbody>
@@ -265,38 +275,50 @@ function paraImprimir(pagina, impresion) {
     .oculto-impresion, button { display: none !important; }
     footer { margin-bottom: 30px !important; }
   </style>`;
-  return pagina.replace(/<script[\s\S]*?<\/script>/g, '').replace(/ onafterprint="[^"]*"/, '').replace('</head>', extra + '</head>');
+  return pagina.replace(/<script>[^<]*print\([\s\S]*?<\/script>/g, '').replace(/ onafterprint="[^"]*"/, '').replace('</head>', extra + '</head>');
 }
 
-// ticketPago.php: comprobante de un abono
+// ticketPago.php: comprobante de un abono (mismos datos y estilos que la web)
 function pago(id, impresion) {
-  const p = db.uno('SELECT * FROM ventas_pagos WHERE ID_Pago = ?', [id]);
+  const p = db.uno(`SELECT p.*, v.Pago AS Abono, v.Total, IFNULL((SELECT SUM(Monto) FROM ventas_pagos WHERE FK_Venta = p.FK_Venta), 0) AS Pagado
+    FROM ventas_pagos p INNER JOIN ventas v ON v.ID_Venta = p.FK_Venta WHERE p.ID_Pago = ?`, [id]);
   if (!p) {
     return 'Pago no encontrado';
   }
-  const v = db.uno('SELECT * FROM ventas WHERE ID_Venta = ?', [p.FK_Venta]);
-  const c = v && v.FK_Cliente !== 0 ? db.uno('SELECT * FROM clientes WHERE ID_Cliente = ?', [v.FK_Cliente]) : null;
-  const abonado = Number(db.valor('SELECT IFNULL(SUM(Monto), 0) FROM ventas_pagos WHERE FK_Venta = ?', [p.FK_Venta]));
-  const restante = v ? Math.max(0, v.Total - (v.Pago - v.Cambio) - abonado) : 0;
+  let restante = p.Total - p.Pagado - p.Abono;
+  let favor = 0;
+  if (restante < 0) {
+    restante = 0;
+    favor = p.Pagado + p.Abono - p.Total;
+  }
   const n = negocio();
-  return paraImprimir(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Ticket</title><style>${estilos('ticketVenta.php')}</style></head><body>
+  return paraImprimir(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Ticket</title><style>${estilos('ticketPago.php')}</style></head>
+    <body>
     <button type="submit" class="oculto-impresion" onclick="window.print()">Imprimir</button>
-    <img class="logo-negocio" src="${n.logo}" width="220px" onerror="this.src='../../vistas/assets/images/logos/logo.png'" />
-    <p class="nombre-negocio">${html(n.nombre)}</p><p class="domicilio">${html(n.domicilio)}</p><p class="telefono">${html(n.telefono)}</p>
-    <div class="linea-punteada"></div>
-    <p class="folio-grande">Comprobante de pago</p>
-    <p class="fecha"><span>Fecha:</span> <span>${fechaHumana(p.Fecha_Registro)}</span></p>
-    <div class="linea-punteada"></div>
-    <div class="cliente-info"><p><strong>Cliente:</strong> ${html(c ? `${c.Nombre} ${c.Primer_Apellido || ''}` : 'Publico en General')}</p>
-      <p><strong>Venta:</strong> ${html(v ? v.Folio : '')}</p></div>
+    <img src="${n.logo}" width="300px" style="margin-bottom: 4px;" onerror="this.src='../../vistas/assets/images/logos/logo.png'" />
+    <p class="domicilio">${html(n.nombre)}</p>
+    <p class="domicilio">${html(n.domicilio)}</p>
+    <p class="telefono">${html(n.telefono)}</p>
+    <p class="fecha"><strong>Fecha:</strong> ${fechaHumana(p.Fecha_Registro)} </p>
     <div class="pago">
-      <p><span>Concepto:</span> <span>${html(p.Concepto)}</span></p>
-      <p><span>Tipo de pago:</span> <span>${html(p.Tipo_Pago)}</span></p>
-      <p class="total-final"><span>Abono:</span> <span>$${numero(p.Monto)}</span></p>
-      <p><span>Restante:</span> <span>$${numero(restante)}</span></p>
+      <p>Concepto: ${html(p.Concepto)}</p>
+      <p>Monto: $${numero(p.Monto)}</p>
+      <p>Tipo: ${html(p.Tipo_Pago)}</p>
+      <br>
+      <p>Total Venta: $${numero(p.Total)}</p>
+      <p>Pagado: $${numero(p.Pagado + p.Abono)}</p>
+      <p>Restante: $${numero(restante)}</p>
+      <p>A favor: $${numero(favor)}</p>
     </div>
-    <footer><p class="vendedor">Atendió: ${html(nombreUsuario(p.FK_Usuario))}</p><p class="gracias">¡Gracias!</p></footer>
-    </body><script>window.print();</script></html>`, impresion);
+    <footer>
+      <p class="separador">********************************</p>
+      <p class="separador">********************************</p>
+      <p class="gracias">¡Gracias por su compra!</p>
+      <p class="separador">********************************</p>
+      <p class="separador">********************************</p>
+    </footer>
+    </body>
+    <script>window.print();</script></html>`, impresion);
 }
 
 // Ticket de muestra para la configuración de impresora

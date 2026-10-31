@@ -184,6 +184,23 @@ const pedir = (p) => rutas.atender('index.php', 'POST', p);
   assert.strictEqual(mysql(`SELECT COUNT(*) FROM ventas_pagos WHERE FK_Venta > ${antes10}`), '1');
   assert.strictEqual(mysql(`SELECT COUNT(*) FROM devoluciones d JOIN detalles_ventas x ON x.ID_Detalle_Venta = d.FK_Detalle_Venta WHERE x.FK_Venta > ${antes10}`), '1');
 
+  // Ticket con devolución y comprobante de abono (como la web)
+  // (las ventas ya se subieron: se revisa con otra venta local)
+  const vDev = await vender(2);
+  const idDet2 = db.valor('SELECT ID_Detalle_Venta FROM detalles_ventas WHERE FK_Venta = ?', [vDev]);
+  await pedir({ metodo: 'detalles', accion: 'ventas', tipo: 'devolucion', productos: JSON.stringify([{ id: idDet2, cantidad: 1 }]) });
+  assert.match(await rutas.atender('controladores/pdf/ticketVenta.php', 'GET', { id: vDev }), /\(Dev: 1\.00\)/);
+  const vCred2 = await vender(1, { tipoPago: 'Crédito', pago: 0, cliente: idCliente });
+  await pedir({ metodo: 'detalles', accion: 'ventas', tipo: 'pago', id: vCred2, importePagoVenta: '1', conceptoPagoVenta: 'Abono', tipoDePagoVenta: 'Efectivo', detallesPagoVenta: '', cajaPagoVenta: CAJA });
+  const idPago = db.valor('SELECT ID_Pago FROM ventas_pagos WHERE FK_Venta = ?', [vCred2]);
+  const tPago = await rutas.atender('controladores/pdf/ticketPago.php', 'GET', { id: idPago, impresion: '1' });
+  assert.match(tPago, /Total Venta/);
+  assert.match(tPago, /\*{32}/);
+  assert.doesNotMatch(tPago, /<script>window\.print/);
+  await pedir({ metodo: 'eliminar', accion: 'ventas', idVenta: vDev });
+  await pedir({ metodo: 'eliminar', accion: 'ventas', idVenta: vCred2 });
+  assert.strictEqual(db.valor('SELECT Cantidad FROM inventario WHERE FK_Producto = ?', [idProd]), invServidor0 - 4, 'eliminar con devolución deja el inventario bien');
+
   // 11. Impresión: versión para la impresora sin scripts del diálogo y con la escala
   const paraImpresora = await rutas.atender('controladores/pdf/ticketPrueba.php', 'GET', { impresion: '1' });
   assert.match(paraImpresora, /zoom: 0\.63/);
