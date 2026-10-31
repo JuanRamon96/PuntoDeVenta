@@ -207,6 +207,22 @@ const pedir = (p) => rutas.atender('index.php', 'POST', p);
   assert.strictEqual(db.valor('SELECT Cantidad FROM inventario WHERE FK_Producto = ?', [idProd]), -5);
   await pedir({ metodo: 'eliminar', accion: 'ventas', idVenta: vSinExistencia });
 
+  // 12. Clientes: los nuevos se pueden modificar/eliminar y se suben al sincronizar aunque no tengan venta
+  const nc = (await pedir({ metodo: 'modificar', accion: 'caja', tipo: 'cliente', telefono: '5551234567', nombre: 'Cliente Sin Venta', calle: '', noExterior: '', noInterior: '', cp: '', colonia: '', ciudad: '', estado: '', pais: '', detalles: '', idCliente: '', idDomicilio: '' })).split('~');
+  const idNuevo = Number(nc[1]);
+  assert.ok(idNuevo < 0);
+  assert.match(await pedir({ metodo: 'consultar', accion: 'clientes', tipo: 'pantalla', buscar: 'Sin Venta', limit: 25, pagina: 1 }), /Nuevo, sin subir/);
+  assert.strictEqual(await pedir({ metodo: 'modificar', accion: 'clientes', id: idNuevo, nombre: 'Cliente Sin Venta Editado', telefono: '5551234567' }), 'Correcto');
+  const borrar = Number((await pedir({ metodo: 'modificar', accion: 'caja', tipo: 'cliente', telefono: '', nombre: 'Para borrar', calle: '', noExterior: '', noInterior: '', cp: '', colonia: '', ciudad: '', estado: '', pais: '', detalles: '', idCliente: '', idDomicilio: '' })).split('~')[1]);
+  assert.strictEqual(await pedir({ metodo: 'eliminar', accion: 'clientes', id: borrar }), 'Correcto');
+  const servidorAntes = Number(mysql("SELECT COUNT(*) FROM clientes WHERE Nombre = 'Cliente Sin Venta Editado'"));
+  assert.ok(JSON.parse(await pedir({ metodo: 'detalles', accion: 'offline', tipo: 'sincronizar' })).ok);
+  assert.strictEqual(Number(mysql("SELECT COUNT(*) FROM clientes WHERE Nombre = 'Cliente Sin Venta Editado'")), servidorAntes + 1);
+  assert.strictEqual(mysql("SELECT COUNT(*) FROM clientes WHERE Nombre = 'Para borrar'"), '0');
+  assert.strictEqual(db.valor('SELECT COUNT(*) FROM clientes_nuevos'), 0);
+  assert.match(await pedir({ metodo: 'consultar', accion: 'clientes', tipo: 'pantalla', buscar: 'Sin Venta', limit: 25, pagina: 1 }), /Del sistema/);
+  assert.strictEqual(await pedir({ metodo: 'eliminar', accion: 'clientes', id: db.valor("SELECT ID_Cliente FROM clientes WHERE Nombre = 'Cliente Sin Venta Editado'") }), 'Offline~Este cliente ya está en el sistema web; elimínalo allá.');
+
   // 11. Impresión: versión para la impresora sin scripts del diálogo y con la escala
   const paraImpresora = await rutas.atender('controladores/pdf/ticketPrueba.php', 'GET', { impresion: '1' });
   assert.match(paraImpresora, /zoom: 0\.63/);

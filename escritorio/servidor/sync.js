@@ -88,7 +88,44 @@ async function enlazar(codigo) {
 }
 
 // Reemplaza el catálogo local con el del servidor y vuelve a restar lo vendido en el equipo que aún no se sube
+// Clientes y domicilios dados de alta en el equipo: se suben primero y las ventas pendientes pasan a usar el ID del servidor
+async function subirClientes() {
+  const clientes = db.todos('SELECT * FROM clientes_nuevos ORDER BY ID_Cliente DESC').map((c) => ({
+    uuid: c.UUID, nombre: c.Nombre, telefono: c.Telefono,
+    direcciones: db.todos('SELECT * FROM direcciones_nuevas WHERE FK_Cliente = ?', [c.ID_Cliente]).map(direccionPaquete)
+  }));
+  const direcciones = db.todos('SELECT * FROM direcciones_nuevas WHERE FK_Cliente > 0').map((d) => ({ ...direccionPaquete(d), idCliente: d.FK_Cliente }));
+  if (!clientes.length && !direcciones.length) {
+    return;
+  }
+  const r = await llamar({ accion: 'clientes', clientes, direcciones });
+  db.transaccion(() => {
+    for (const c of db.todos('SELECT ID_Cliente, UUID FROM clientes_nuevos')) {
+      const nuevo = r.mapa.clientes[c.UUID];
+      if (nuevo) {
+        db.db.run('UPDATE ventas SET FK_Cliente = ? WHERE FK_Cliente = ? AND Subido = 0', [nuevo, c.ID_Cliente]);
+        db.db.run('UPDATE direcciones_nuevas SET FK_Cliente = ? WHERE FK_Cliente = ?', [nuevo, c.ID_Cliente]);
+        db.db.run('DELETE FROM clientes_nuevos WHERE ID_Cliente = ?', [c.ID_Cliente]);
+        db.db.run('DELETE FROM clientes WHERE ID_Cliente = ?', [c.ID_Cliente]);
+      }
+    }
+    for (const d of db.todos('SELECT ID_Direccion, UUID FROM direcciones_nuevas')) {
+      const nuevo = r.mapa.direcciones[d.UUID];
+      if (nuevo) {
+        db.db.run('UPDATE ventas SET FK_Direccion = ? WHERE FK_Direccion = ? AND Subido = 0', [nuevo, d.ID_Direccion]);
+        db.db.run('DELETE FROM direcciones_nuevas WHERE ID_Direccion = ?', [d.ID_Direccion]);
+        db.db.run('DELETE FROM direcciones_cliente WHERE ID_Direccion = ?', [d.ID_Direccion]);
+      }
+    }
+  });
+}
+
+function direccionPaquete(d) {
+  return { uuid: d.UUID, calle: d.Calle, noExterior: d.No_Exterior, noInterior: d.No_Interior, cp: d.CP, colonia: d.Colonia, ciudad: d.Ciudad, estado: d.Estado, pais: d.Pais, detalles: d.Detalles };
+}
+
 async function bajar() {
+  await subirClientes();
   const r = await llamar({ accion: 'bajar' });
   const enlace = db.ajuste('enlace');
 
@@ -109,8 +146,7 @@ async function bajar() {
       AND ID_Detalle_Caja <> (SELECT MAX(ID_Detalle_Caja) FROM detalles_caja)
       AND NOT EXISTS (SELECT 1 FROM ventas v WHERE v.FK_Detalles_Caja = detalles_caja.ID_Detalle_Caja)
       AND NOT EXISTS (SELECT 1 FROM movimientos_caja m WHERE m.FK_Detalle_Caja = detalles_caja.ID_Detalle_Caja)`);
-    db.db.run('DELETE FROM clientes_nuevos WHERE NOT EXISTS (SELECT 1 FROM ventas v WHERE v.FK_Cliente = clientes_nuevos.ID_Cliente)');
-    db.db.run('DELETE FROM direcciones_nuevas WHERE NOT EXISTS (SELECT 1 FROM ventas v WHERE v.FK_Direccion = direcciones_nuevas.ID_Direccion) AND NOT EXISTS (SELECT 1 FROM clientes_nuevos c WHERE c.ID_Cliente = direcciones_nuevas.FK_Cliente)');
+    // Los clientes nuevos no se borran aquí: se quitan solo cuando el servidor confirma que los recibió (subirClientes)
 
     for (const nombre of db.TABLAS_SERVIDOR) {
       if (r.tablas[nombre]) {
@@ -264,6 +300,7 @@ function paqueteSubida() {
 
 // Sube todo lo pendiente; lo que el servidor confirma se marca como subido y se borra al bajar el catálogo
 async function subir() {
+  await subirClientes();
   const turnos = paqueteSubida();
   if (!turnos.length) {
     await bajar();

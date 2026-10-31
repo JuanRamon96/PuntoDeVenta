@@ -1,0 +1,121 @@
+<div class="row" style="margin-top: -65px;">
+  <div class="col-12 text-end">
+    <button type="button" class="btn btn-outline-danger btn-sm cargarVista" carga="v_clientes_offline" titulo="Clientes" id="bRecargar"><i class="fa-solid fa-rotate-right"></i></button>
+  </div>
+</div>
+<br>
+<div class="row">
+  <div class="col-sm-12">
+    <div class="card">
+      <div class="card-body">
+        <div class="row align-items-center">
+          <div class="col-12"><span class="vt-offline-nota">Los clientes del sistema web se modifican allá. Los que das de alta en la caja aparecen como "Nuevo, sin subir": puedes modificarlos o eliminarlos aquí hasta que presiones Sincronizar o Subir ventas (arriba).</span></div>
+        </div>
+        <br>
+        <div class="row">
+          <div class="col-12 table-responsive">
+            <table id="tablaClientesOffline" class="myDataTable table table-hover table-striped table-bordered text-center" width="100%" style="font-size: 12px;">
+              <thead>
+                <tr>
+                  <th>Nombre</th>
+                  <th>Teléfono</th>
+                  <th orden="No">Domicilio</th>
+                  <th>Origen</th>
+                  <th orden="No">Acciones</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="modalClienteLocal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <p class="h5 fw-bold modal-title">Modificar cliente</p>
+        <button class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form id="formClienteLocal">
+        <div class="modal-body">
+          <div class="form-floating mb-3">
+            <input id="nombreClienteLocal" type="text" class="form-control" placeholder="Nombre" required>
+            <label for="nombreClienteLocal">Nombre</label>
+          </div>
+          <div class="form-floating mb-3">
+            <input id="telefonoClienteLocal" type="text" class="form-control" placeholder="Teléfono">
+            <label for="telefonoClienteLocal">Teléfono</label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar <i class="fas fa-times"></i></button>
+          <button type="submit" class="btn btn-primary" id="bGuardarClienteLocal">Guardar <i class="fas fa-save"></i></button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+  function v_clientes_offline() {
+    ajaxMyDatatable({
+      table: $('#tablaClientesOffline'),
+      colums: ['Nombre', 'Telefono', 'Domicilio', 'Origen', 'Acciones'],
+      sort: [0, 'asc'],
+      url: 'index.php',
+      params: { metodo: 'consultar', accion: 'clientes', tipo: 'pantalla' }
+    });
+  }
+
+  $(document).off('.clientesOffline');
+
+  $(document).on('click.clientesOffline', '.bModificarClienteLocal', function () {
+    $('#bGuardarClienteLocal').attr('attrID', $(this).attr('attrID'));
+    $('#nombreClienteLocal').val($(this).attr('attrNombre'));
+    $('#telefonoClienteLocal').val($(this).attr('attrTelefono'));
+    $('#modalClienteLocal').modal('show');
+  });
+
+  $(document).on('submit.clientesOffline', '#formClienteLocal', function (e) {
+    e.preventDefault();
+    $.post('index.php', { metodo: 'modificar', accion: 'clientes', id: $('#bGuardarClienteLocal').attr('attrID'), nombre: $('#nombreClienteLocal').val(), telefono: $('#telefonoClienteLocal').val() })
+      .done(function (res) {
+        res = String(res).trim();
+        if (res === 'Correcto') {
+          $('#modalClienteLocal').modal('hide');
+          v_clientes_offline();
+        } else {
+          Swal.fire({ icon: 'error', title: 'Oops...', text: res.replace(/^Offline~/, '') });
+        }
+      });
+  });
+
+  $(document).on('click.clientesOffline', '.bEliminarClienteLocal', function () {
+    const id = $(this).attr('attrID');
+    Swal.fire({
+      title: '¿Eliminar este cliente?',
+      text: 'Solo se borra de este equipo; todavía no se ha subido al sistema web.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonText: 'No, cancelar',
+      confirmButtonText: 'Sí, eliminar'
+    }).then(function (r) {
+      if (!r.value) {
+        return;
+      }
+      $.post('index.php', { metodo: 'eliminar', accion: 'clientes', id: id }).done(function (res) {
+        res = String(res).trim();
+        if (res === 'Correcto') {
+          v_clientes_offline();
+        } else {
+          Swal.fire({ icon: 'error', title: 'Oops...', text: res.replace(/^Offline~/, '') });
+        }
+      });
+    });
+  });
+</script>

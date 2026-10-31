@@ -38,6 +38,7 @@ function layout() {
     '#menuProductos#': sesion.puede('Productos') ? itemMenu('v_productos_offline', 'Productos', 'bMenuProductos', 'fas fa-box') : '',
     '#menuInventario#': sesion.puede('Inventario') ? itemMenu('v_inventario_offline', 'Inventario', 'bMenuInventario', 'fas fa-clipboard-list') : '',
     '#menuPromociones#': sesion.puede('Promociones') ? itemMenu('v_promociones_offline', 'Promociones', 'bMenuPromociones', 'fa-solid fa-tags') : '',
+    '#menuClientes#': itemMenu('v_clientes_offline', 'Clientes', 'bMenuClientes', 'fas fa-people-arrows'),
     '#menuVentas#': itemMenu('v_ventas', 'Ventas', 'bMenuVentas', 'fas fa-dollar-sign'),
     '#menuUsuarios#': (sesion.puede('Usuarios') ? itemMenu('v_usuarios_offline', 'Usuarios', 'bMenuUsuarios', 'fas fa-users') : '') +
       itemMenu('v_impresora_offline', 'Impresora', 'bMenuImpresora', 'fas fa-print')
@@ -74,7 +75,7 @@ function contenido(vista) {
     const caja = db.existeTabla('cajas') ? db.uno('SELECT ID_Caja, Nombre FROM cajas LIMIT 1') : null;
     return leer('vistas/v_ventas.php').replace('#cajas#', caja ? `<option value="${caja.ID_Caja}">${html(caja.Nombre)}</option>` : '');
   }
-  const propias = ['v_productos_offline', 'v_inventario_offline', 'v_promociones_offline', 'v_usuarios_offline', 'v_impresora_offline'];
+  const propias = ['v_clientes_offline', 'v_productos_offline', 'v_inventario_offline', 'v_promociones_offline', 'v_usuarios_offline', 'v_impresora_offline'];
   if (propias.includes(vista)) {
     return leer(`offline/vistas/${vista}.html`);
   }

@@ -147,6 +147,80 @@ if ($accion === 'estado') {
 	responder(array('ok' => true, 'suscripcion' => $sub, 'servidor' => date('Y-m-d H:i:s')));
 }
 
+// Utilidades para subir datos del equipo sin duplicarlos (cada registro trae su identificador local)
+$yaSubido = function ($uuid, $tipo) use ($cuenta) {
+	$r = filas("SELECT ID_Servidor FROM punto_subs.offline_subidos WHERE UUID = '" . esc($uuid) . "' AND FK_Cuenta = '$cuenta' AND Tipo = '" . esc($tipo) . "'");
+	return count($r) ? intval($r[0]['ID_Servidor']) : 0;
+};
+$anotar = function ($uuid, $tipo, $idServidor) use ($cuenta, $db) {
+	$db->query("INSERT INTO punto_subs.offline_subidos SET UUID = '" . esc($uuid) . "', FK_Cuenta = '$cuenta', Tipo = '" . esc($tipo) . "', ID_Servidor = '" . intval($idServidor) . "', Fecha = NOW()");
+};
+
+$clienteServidor = function ($cli) use ($db, $yaSubido, $anotar) {
+	// $cli: {uuid, nombre, telefono, direccion:{uuid,...}}; se busca por teléfono antes de crear
+	$idCliente = $yaSubido($cli['uuid'], 'cliente');
+	if (!$idCliente) {
+		$tel = esc(isset($cli['telefono']) ? $cli['telefono'] : '');
+		$r = $tel != '' ? filas("SELECT ID_Cliente FROM clientes WHERE Telefono = '$tel' LIMIT 1") : array();
+		if (count($r)) {
+			$idCliente = intval($r[0]['ID_Cliente']);
+		} else {
+			$db->query("INSERT INTO clientes SET Tipo = 'Física', Nombre = '" . esc($cli['nombre']) . "', Telefono = '$tel', Fecha_Registro = NOW()");
+			$idCliente = $db->insert_id;
+		}
+		$anotar($cli['uuid'], 'cliente', $idCliente);
+	}
+
+	$idDireccion = 0;
+	if (!empty($cli['direccion']) && !empty($cli['direccion']['uuid'])) {
+		$d = $cli['direccion'];
+		$idDireccion = $yaSubido($d['uuid'], 'direccion');
+		if (!$idDireccion) {
+			$campos = array('Calle' => 'calle', 'No_Exterior' => 'noExterior', 'No_Interior' => 'noInterior', 'CP' => 'cp', 'Colonia' => 'colonia', 'Ciudad' => 'ciudad', 'Estado' => 'estado', 'Pais' => 'pais', 'Detalles' => 'detalles');
+			$set = "FK_Cliente = '$idCliente'";
+			foreach ($campos as $col => $k) {
+				$set .= ", $col = '" . esc(isset($d[$k]) ? $d[$k] : '') . "'";
+			}
+			$db->query("INSERT INTO direcciones_cliente SET $set");
+			$idDireccion = $db->insert_id;
+			$anotar($d['uuid'], 'direccion', $idDireccion);
+		}
+	}
+	return array($idCliente, $idDireccion);
+};
+
+// ----- clientes: los clientes y domicilios nuevos que se dieron de alta en el equipo -----
+if ($accion === 'clientes') {
+	$mapa = array('clientes' => new stdClass(), 'direcciones' => new stdClass());
+	foreach (isset($entrada['clientes']) && is_array($entrada['clientes']) ? $entrada['clientes'] : array() as $cli) {
+		list($idCliente) = $clienteServidor(array('uuid' => $cli['uuid'], 'nombre' => $cli['nombre'], 'telefono' => $cli['telefono']));
+		$mapa['clientes']->{$cli['uuid']} = $idCliente;
+		foreach (isset($cli['direcciones']) ? $cli['direcciones'] : array() as $d) {
+			list(, $idDireccion) = $clienteServidor(array('uuid' => $cli['uuid'], 'direccion' => $d));
+			$mapa['direcciones']->{$d['uuid']} = $idDireccion;
+		}
+	}
+	// Domicilios nuevos de clientes que ya existían en el servidor
+	foreach (isset($entrada['direcciones']) && is_array($entrada['direcciones']) ? $entrada['direcciones'] : array() as $d) {
+		$idDireccion = $yaSubido($d['uuid'], 'direccion');
+		$idCliente = intval($d['idCliente']);
+		if (!$idDireccion && count(filas("SELECT ID_Cliente FROM clientes WHERE ID_Cliente = '$idCliente'"))) {
+			$campos = array('Calle' => 'calle', 'No_Exterior' => 'noExterior', 'No_Interior' => 'noInterior', 'CP' => 'cp', 'Colonia' => 'colonia', 'Ciudad' => 'ciudad', 'Estado' => 'estado', 'Pais' => 'pais', 'Detalles' => 'detalles');
+			$set = "FK_Cliente = '$idCliente'";
+			foreach ($campos as $col => $k) {
+				$set .= ", $col = '" . esc(isset($d[$k]) ? $d[$k] : '') . "'";
+			}
+			$db->query("INSERT INTO direcciones_cliente SET $set");
+			$idDireccion = $db->insert_id;
+			$anotar($d['uuid'], 'direccion', $idDireccion);
+		}
+		if ($idDireccion) {
+			$mapa['direcciones']->{$d['uuid']} = $idDireccion;
+		}
+	}
+	responder(array('ok' => true, 'mapa' => $mapa));
+}
+
 // ----- bajar: copia de las tablas que la caja necesita, para guardarlas en el equipo -----
 if ($accion === 'bajar') {
 	$caja = filas("SELECT ID_Caja, Nombre, FK_Sucursal FROM cajas WHERE ID_Caja = '$idCaja'");
@@ -197,14 +271,6 @@ if ($accion === 'subir') {
 	$subidos = array();
 	$errores = array();
 
-	$yaSubido = function ($uuid, $tipo) use ($cuenta) {
-		$r = filas("SELECT ID_Servidor FROM punto_subs.offline_subidos WHERE UUID = '" . esc($uuid) . "' AND FK_Cuenta = '$cuenta' AND Tipo = '" . esc($tipo) . "'");
-		return count($r) ? intval($r[0]['ID_Servidor']) : 0;
-	};
-	$anotar = function ($uuid, $tipo, $idServidor) use ($cuenta, $db) {
-		$db->query("INSERT INTO punto_subs.offline_subidos SET UUID = '" . esc($uuid) . "', FK_Cuenta = '$cuenta', Tipo = '" . esc($tipo) . "', ID_Servidor = '" . intval($idServidor) . "', Fecha = NOW()");
-	};
-
 	$idsUsuarios = array();
 	foreach (filas("SELECT ID_Usuario FROM usuarios") as $u) {
 		$idsUsuarios[intval($u['ID_Usuario'])] = true;
@@ -218,38 +284,6 @@ if ($accion === 'subir') {
 		return intval($disp['FK_Usuario_Alta']);
 	};
 
-	$clienteServidor = function ($cli) use ($db, $yaSubido, $anotar) {
-		// $cli: {uuid, nombre, telefono, direccion:{uuid,...}}; se busca por teléfono antes de crear
-		$idCliente = $yaSubido($cli['uuid'], 'cliente');
-		if (!$idCliente) {
-			$tel = esc(isset($cli['telefono']) ? $cli['telefono'] : '');
-			$r = $tel != '' ? filas("SELECT ID_Cliente FROM clientes WHERE Telefono = '$tel' LIMIT 1") : array();
-			if (count($r)) {
-				$idCliente = intval($r[0]['ID_Cliente']);
-			} else {
-				$db->query("INSERT INTO clientes SET Tipo = 'Física', Nombre = '" . esc($cli['nombre']) . "', Telefono = '$tel', Fecha_Registro = NOW()");
-				$idCliente = $db->insert_id;
-			}
-			$anotar($cli['uuid'], 'cliente', $idCliente);
-		}
-
-		$idDireccion = 0;
-		if (!empty($cli['direccion']) && !empty($cli['direccion']['uuid'])) {
-			$d = $cli['direccion'];
-			$idDireccion = $yaSubido($d['uuid'], 'direccion');
-			if (!$idDireccion) {
-				$campos = array('Calle' => 'calle', 'No_Exterior' => 'noExterior', 'No_Interior' => 'noInterior', 'CP' => 'cp', 'Colonia' => 'colonia', 'Ciudad' => 'ciudad', 'Estado' => 'estado', 'Pais' => 'pais', 'Detalles' => 'detalles');
-				$set = "FK_Cliente = '$idCliente'";
-				foreach ($campos as $col => $k) {
-					$set .= ", $col = '" . esc(isset($d[$k]) ? $d[$k] : '') . "'";
-				}
-				$db->query("INSERT INTO direcciones_cliente SET $set");
-				$idDireccion = $db->insert_id;
-				$anotar($d['uuid'], 'direccion', $idDireccion);
-			}
-		}
-		return array($idCliente, $idDireccion);
-	};
 
 	foreach ($turnos as $t) {
 		$origen = isset($t['cuentaOrigen']) ? intval($t['cuentaOrigen']) : $cuenta;
