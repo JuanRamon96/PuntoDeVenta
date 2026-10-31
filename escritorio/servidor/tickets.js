@@ -16,7 +16,9 @@ function iniciar(opciones) {
 function estilos(archivo) {
   const texto = fs.readFileSync(path.join(web, 'controladores', 'pdf', archivo), 'utf8');
   const m = texto.match(/<style>([\s\S]*?)<\/style>/);
-  return m ? m[1] : '';
+  // Renglones de asteriscos arriba y abajo del "¡Gracias por su compra!"
+  return (m ? m[1] : '') + `
+    .asteriscos { text-align: center; font-family: "Courier New", Courier, monospace; font-size: 22px; font-weight: bold; letter-spacing: 2px; margin: 6px 0; overflow: hidden; white-space: nowrap; }`;
 }
 
 const redondear = (n) => Math.round(Number(n) * 100) / 100;
@@ -129,9 +131,9 @@ function ventaHtml(id) {
     <footer>
       ${String(v.Detalles).trim() !== '' ? `<p class="detalles"><strong>Detalles:</strong> ${html(v.Detalles)}</p>` : ''}
       <p class="vendedor">Atendió: ${html(nombreUsuario(v.FK_Usuario))}</p>
-      <div class="separador"></div><div class="separador"></div>
+      <p class="asteriscos">********************************</p>
       <p class="gracias">¡Gracias por su compra!</p>
-      <div class="separador"></div><div class="separador"></div>
+      <p class="asteriscos">********************************</p>
       <p class="text-center m-0">www.bigtool.mx</p>
     </footer>
     </body>
@@ -311,7 +313,7 @@ function prueba(impresion) {
     <div class="linea-punteada"></div>
     <table class="tablaDetalles"><thead><tr><th>Cant.</th><th>Precio</th><th>Desc.</th><th>Impto.</th><th>Total</th></tr></thead><tbody>${filas}</tbody></table>
     <div class="pago"><p class="total-final"><span>Total:</span> <span>$${numero(total)}</span></p></div>
-    <footer><p class="gracias">¡Gracias por su compra!</p><p class="text-center m-0">www.bigtool.mx</p></footer>
+    <footer><p class="asteriscos">********************************</p><p class="gracias">¡Gracias por su compra!</p><p class="asteriscos">********************************</p><p class="text-center m-0">www.bigtool.mx</p></footer>
     </body></html>`, impresion);
 }
 
