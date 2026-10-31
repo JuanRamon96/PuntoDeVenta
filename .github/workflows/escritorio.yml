@@ -1,5 +1,6 @@
-# Compila los instaladores de la app de escritorio offline (Windows .exe y Mac .dmg).
-# Se corre al subir una etiqueta escritorio-v* (ej. escritorio-v1.0.0) o a mano desde Actions. Los instaladores quedan en "Artifacts".
+# Compila los instaladores de la app de escritorio offline (Windows .exe y Mac .dmg) y los publica
+# en una "Release" de GitHub con liga pública de descarga (la usa la landing).
+# Se corre al subir una etiqueta escritorio-v* (ej. escritorio-v1.1.0) o a mano desde Actions.
 name: App de escritorio
 
 on:
@@ -8,15 +9,19 @@ on:
     tags:
       - 'escritorio-v*'
 
+permissions:
+  contents: write
+
 jobs:
   compilar:
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: windows-latest
-            comando: dist:win
+            comando: dist:win -- --publish never
           - os: macos-latest
-            comando: dist:mac -- --x64 --arm64
+            comando: dist:mac -- --x64 --arm64 --publish never
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -26,7 +31,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: npm ci
+      - run: npm install --no-audit --no-fund
       - run: npm run ${{ matrix.comando }}
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
@@ -34,5 +39,11 @@ jobs:
         with:
           name: instaladores-${{ matrix.os }}
           path: |
+            escritorio/dist/*.exe
+            escritorio/dist/*.dmg
+      - uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
             escritorio/dist/*.exe
             escritorio/dist/*.dmg
