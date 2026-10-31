@@ -1742,3 +1742,25 @@ footer {
     color: var(--tinta-suave);
     margin-top: 4px
 }
+
+/* ===== Fondos alternados para separar secciones ===== */
+#multicaja {
+    background-color: var(--papel-alto);
+    background-image: radial-gradient(rgba(20, 23, 28, .09) 1.2px, transparent 1.2px);
+    background-size: 22px 22px;
+    border-top: 1px solid var(--linea);
+    border-bottom: 1px solid var(--linea)
+}
+
+#escritorio {
+    background-color: #E7E9E1;
+    background-image:
+        linear-gradient(rgba(20, 23, 28, .05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(20, 23, 28, .05) 1px, transparent 1px);
+    background-size: 32px 32px;
+    border-bottom: 1px solid var(--linea)
+}
+
+#escritorio .escritorio {
+    box-shadow: 0 18px 40px rgba(20, 23, 28, .08)
+}

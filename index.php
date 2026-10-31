@@ -22,7 +22,7 @@ $descargasApp = array(
 
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/5.3.3/css/bootstrap.min.css">
-  <link rel="stylesheet" href="./assets/css/css.css?v=2">
+  <link rel="stylesheet" href="./assets/css/css.css?v=3">
 
   <!-- recaptcha Google -->
   <script src="https://www.google.com/recaptcha/api.js" async defer></script>
