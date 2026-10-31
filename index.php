@@ -1,3 +1,11 @@
+<?php
+// App de escritorio offline: al publicar una versión nueva, cambiar aquí versión, archivo y tamaño.
+// 'archivo' vacío = todavía no disponible (se muestra "Próximamente").
+$descargasApp = array(
+  'windows' => array('version' => '1.1.0', 'archivo' => 'descargas/VentasTool-Offline-Setup-1.1.0.exe', 'tamano' => '141 MB'),
+  'mac' => array('version' => '1.1.0', 'archivo' => '', 'tamano' => '')
+);
+?>
 <!DOCTYPE html>
 <html lang="es-MX">
 
@@ -14,7 +22,7 @@
 
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/5.3.3/css/bootstrap.min.css">
-  <link rel="stylesheet" href="./assets/css/css.css">
+  <link rel="stylesheet" href="./assets/css/css.css?v=2">
 
   <!-- recaptcha Google -->
   <script src="https://www.google.com/recaptcha/api.js" async defer></script>
@@ -33,6 +41,7 @@
           <a href="#modulos">Módulos</a>
           <a href="#multicaja">Multi-caja</a>
           <a href="#facturacion">Facturación CFDI</a>
+          <a href="#escritorio">App sin internet</a>
           <a href="#precios">Precios</a>
           <a href="#faq">Preguntas</a>
         </div>
@@ -239,6 +248,78 @@
                   </div>
                 </div>
                 <div class="monto">$6,102.00</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- APP DE ESCRITORIO (SIN INTERNET) -->
+    <section id="escritorio">
+      <div class="wrap">
+        <div class="escritorio reveal">
+          <div class="escritorio-grid">
+            <div>
+              <span class="eyebrow">App de escritorio · Funciona sin internet</span>
+              <h2>Que se vaya el internet no detiene tu caja.</h2>
+              <p>Instala Ventas Tool en tu computadora y sigue vendiendo, cobrando e imprimiendo tickets aunque no haya conexión. Cuando regrese el internet, subes tus ventas con un solo botón y todo queda en tu cuenta.</p>
+              <ul class="escritorio-lista">
+                <li><i class="fa-solid fa-cash-register"></i><span><b>La misma caja que ya conoces:</b> ventas, cobros, apartados, abonos y corte de caja.</span></li>
+                <li><i class="fa-solid fa-print"></i><span><b>Imprime directo</b> en tu ticketera, sin ventanas de por medio.</span></li>
+                <li><i class="fa-solid fa-rotate"></i><span><b>Sincroniza cuando quieras:</b> baja productos, inventario, promociones y clientes, y sube tus ventas.</span></li>
+                <li><i class="fa-solid fa-shield-halved"></i><span><b>Tus datos seguros:</b> lo que vendes sin internet se guarda en el equipo hasta que lo subes.</span></li>
+              </ul>
+
+              <div class="descargas">
+<?php
+  $plataformas = array(
+    'windows' => array('nombre' => 'Windows', 'icono' => 'fa-brands fa-windows', 'detalle' => 'Windows 10 y 11 · 64 bits'),
+    'mac' => array('nombre' => 'MacBook', 'icono' => 'fa-brands fa-apple', 'detalle' => 'macOS · Apple Silicon e Intel')
+  );
+  foreach ($plataformas as $clave => $plat) {
+    $info = $descargasApp[$clave];
+    $disponible = $info['archivo'] !== '';
+?>
+                <div class="descarga<?php echo $disponible ? '' : ' proximamente'; ?>">
+                  <div class="descarga-icono"><i class="<?php echo $plat['icono']; ?>"></i></div>
+                  <div class="descarga-info">
+                    <div class="descarga-nombre"><?php echo $plat['nombre']; ?></div>
+                    <div class="descarga-detalle"><?php echo $plat['detalle']; ?></div>
+                    <div class="descarga-version">Versión <?php echo htmlspecialchars($info['version']); ?><?php echo $info['tamano'] !== '' ? ' · ' . htmlspecialchars($info['tamano']) : ''; ?></div>
+                  </div>
+<?php if ($disponible) { ?>
+                  <a class="btn btn-primario descarga-btn" href="<?php echo htmlspecialchars($info['archivo']); ?>" download><i class="fa-solid fa-download"></i> Descargar</a>
+<?php } else { ?>
+                  <span class="descarga-pronto">Próximamente</span>
+<?php } ?>
+                </div>
+<?php } ?>
+              </div>
+              <p class="escritorio-nota"><i class="fa-solid fa-circle-info"></i> Necesitas una cuenta de Ventas Tool. Después de instalar, entra a tu cuenta en la web, ve a <b>Dispositivos offline</b> y enlaza el equipo con el código que te da el sistema. La primera vez, Windows o Mac pueden pedirte confirmar que quieres abrir la app.</p>
+            </div>
+
+            <div class="escritorio-visual" aria-hidden="true">
+              <div class="ventana">
+                <div class="ventana-barra">
+                  <span></span><span></span><span></span>
+                  <div class="ventana-titulo">Ventas Tool · Caja 01</div>
+                </div>
+                <div class="ventana-cuerpo">
+                  <div class="estado-offline"><span class="punto-offline"></span> Sin internet · vendiendo normal</div>
+                  <div class="renglon"><span>Refresco 600 ml</span><b>$22.00</b></div>
+                  <div class="renglon"><span>Galletas surtidas x2</span><b>$36.00</b></div>
+                  <div class="renglon"><span>Jabón de barra</span><b>$18.50</b></div>
+                  <div class="renglon total"><span>Total</span><b>$76.50</b></div>
+                  <div class="ventana-botones">
+                    <span class="mini-btn rojo"><i class="fa-solid fa-cart-shopping"></i> Cobrar</span>
+                    <span class="mini-btn"><i class="fa-solid fa-cloud-arrow-up"></i> Subir ventas (12)</span>
+                  </div>
+                </div>
+              </div>
+              <div class="ticket-flotante">
+                <div class="t-linea">*** GRACIAS POR SU COMPRA ***</div>
+                <div class="t-linea t-tenue">Folio D1-000128 · Efectivo</div>
               </div>
             </div>
           </div>
