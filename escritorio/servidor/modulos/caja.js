@@ -59,28 +59,6 @@ function nombreUsuario(id) {
   return u ? `${u.Nombre} ${u.Primer_Apellido} ${u.Segundo_Apellido}` : '';
 }
 
-// Solo se puede vender lo que existe (decisión del negocio). Devuelve el mensaje de error o null.
-function validarExistencias(productos, cantidadesPrevias = {}) {
-  const pedido = {};
-  for (const p of productos) {
-    const id = Number(p.id);
-    if (id > 0) {
-      pedido[id] = (pedido[id] || 0) + Number(p.cantidad || 0);
-    }
-  }
-  for (const id of Object.keys(pedido)) {
-    const prod = db.uno('SELECT Descripcion FROM productos WHERE ID_Producto = ?', [id]);
-    if (!prod) {
-      continue;
-    }
-    const disponible = existencia(id) + (cantidadesPrevias[id] || 0);
-    if (pedido[id] > disponible + 1e-9) {
-      return `No hay existencia suficiente de "${prod.Descripcion}". Hay ${numero(disponible, 2).replace(/\.00$/, '')} y se quieren vender ${numero(pedido[id], 2).replace(/\.00$/, '')}.`;
-    }
-  }
-  return null;
-}
-
 // Descuenta lotes: primero los elegidos en la caja y luego por caducidad (igual que guardarVenta en PHP)
 function descontarLotes(idDetalleVenta, producto) {
   if (!tabla('inventario_lotes')) {
@@ -283,7 +261,6 @@ module.exports = {
   promocionProducto,
   impuestosDe,
   existencia,
-  validarExistencias,
   insertarDetalle,
 
   consultar(p) {
@@ -301,10 +278,6 @@ module.exports = {
       const idTurno = idTurnoActual(Number(p.idCaja));
       if (!idTurno || !turno.abierta()) {
         return 'Offline~La caja no está abierta.';
-      }
-      const falta = validarExistencias(productos);
-      if (falta) {
-        return 'Offline~' + falta;
       }
 
       const total = Number(p.total) || 0;
@@ -372,12 +345,6 @@ module.exports = {
       const cantidad = Number(p.cantidad) || 0;
       const descuento = Number(p.descuento) || 0;
       const prod = db.uno('SELECT ID_Producto, Descripcion, Precio FROM productos WHERE Codigo = ?', [String(p.codigo || '').trim()]);
-      if (prod) {
-        const falta = validarExistencias([{ id: prod.ID_Producto, cantidad }]);
-        if (falta) {
-          return 'Offline~' + falta;
-        }
-      }
       db.transaccion(() => {
         const precio = prod ? Number(prod.Precio) : Number(p.precio) || 0;
         const total = precio * cantidad - descuento;

@@ -65,7 +65,6 @@ const pedir = (p) => rutas.atender('index.php', 'POST', p);
     pago: Number(prod.Precio) * cantidad, cambio: 0, cliente: 0, fkDireccion: 0, detalles: '', turno: '',
     productos: JSON.stringify([{ id: idProd, descripcion: prod.Descripcion, precio: Number(prod.Precio), cantidad, descuento: 0, total: Number(prod.Precio) * cantidad, impuestos: [], lotes: [] }])
   });
-  assert.match(await venta(existenciaServidor + 1), /^Offline~No hay existencia suficiente/);
   const r1 = await venta(2);
   assert.match(r1, /^Correcto~\d+$/);
   const idVenta = Number(r1.split('~')[1]);
@@ -200,6 +199,13 @@ const pedir = (p) => rutas.atender('index.php', 'POST', p);
   await pedir({ metodo: 'eliminar', accion: 'ventas', idVenta: vDev });
   await pedir({ metodo: 'eliminar', accion: 'ventas', idVenta: vCred2 });
   assert.strictEqual(db.valor('SELECT Cantidad FROM inventario WHERE FK_Producto = ?', [idProd]), invServidor0 - 4, 'eliminar con devolución deja el inventario bien');
+
+  // Se puede vender aunque no haya existencia (queda en negativo)
+  const existenciaAhora = db.valor('SELECT Cantidad FROM inventario WHERE FK_Producto = ?', [idProd]);
+  const vSinExistencia = await vender(existenciaAhora + 5);
+  assert.ok(vSinExistencia > 0, 'deja vender sin existencia');
+  assert.strictEqual(db.valor('SELECT Cantidad FROM inventario WHERE FK_Producto = ?', [idProd]), -5);
+  await pedir({ metodo: 'eliminar', accion: 'ventas', idVenta: vSinExistencia });
 
   // 11. Impresión: versión para la impresora sin scripts del diálogo y con la escala
   const paraImpresora = await rutas.atender('controladores/pdf/ticketPrueba.php', 'GET', { impresion: '1' });

@@ -192,16 +192,6 @@ const detalles = {
     }
     const nuevos = productos.map((x) => ({ id: Number(x.idProd) || 0, descripcion: x.descripcion, precio: x.precio, cantidad: x.cantidad, descuento: x.descuento, total: x.total, impuestos: x.impuestos || [], lotes: [] }));
 
-    // Lo que ya tenía esta venta vuelve a estar disponible al revisar existencias
-    const previas = {};
-    for (const d of db.todos('SELECT FK_Producto, SUM(Cantidad) AS Cantidad FROM detalles_ventas WHERE FK_Venta = ? GROUP BY FK_Producto', [v.ID_Venta])) {
-      previas[d.FK_Producto] = Number(d.Cantidad);
-    }
-    const falta = caja.validarExistencias(nuevos, v.Estatus === 2 && v.Regrezo_Inventario === 1 ? {} : previas);
-    if (falta) {
-      return 'Offline~' + falta;
-    }
-
     const total = Number(p.total) || 0;
     const pago = Number(p.pago) || 0;
     const cambio = Number(p.cambio) || 0;
