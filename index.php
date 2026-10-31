@@ -3,7 +3,9 @@
 // 'archivo' vacío = todavía no disponible (se muestra "Próximamente").
 $descargasApp = array(
   'windows' => array('version' => '1.1.0', 'archivo' => 'descargas/VentasTool-Offline-Setup-1.1.0.exe', 'tamano' => '141 MB'),
-  'mac' => array('version' => '1.1.0', 'archivo' => '', 'tamano' => '')
+  'mac' => array('version' => '1.1.0', 'archivo' => 'descargas/VentasTool-Offline-1.1.0-arm64.dmg', 'tamano' => '148 MB',
+    // Mac con procesador Intel (anteriores a 2020)
+    'intel' => 'descargas/VentasTool-Offline-1.1.0-x64.dmg', 'tamanoIntel' => '152 MB')
 );
 ?>
 <!DOCTYPE html>
@@ -22,7 +24,7 @@ $descargasApp = array(
 
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/5.3.3/css/bootstrap.min.css">
-  <link rel="stylesheet" href="./assets/css/css.css?v=3">
+  <link rel="stylesheet" href="./assets/css/css.css?v=4">
 
   <!-- recaptcha Google -->
   <script src="https://www.google.com/recaptcha/api.js" async defer></script>
@@ -275,7 +277,7 @@ $descargasApp = array(
 <?php
   $plataformas = array(
     'windows' => array('nombre' => 'Windows', 'icono' => 'fa-brands fa-windows', 'detalle' => 'Windows 10 y 11 · 64 bits'),
-    'mac' => array('nombre' => 'MacBook', 'icono' => 'fa-brands fa-apple', 'detalle' => 'macOS · Apple Silicon e Intel')
+    'mac' => array('nombre' => 'MacBook', 'icono' => 'fa-brands fa-apple', 'detalle' => 'macOS 11 o superior')
   );
   foreach ($plataformas as $clave => $plat) {
     $info = $descargasApp[$clave];
@@ -288,7 +290,12 @@ $descargasApp = array(
                     <div class="descarga-detalle"><?php echo $plat['detalle']; ?></div>
                     <div class="descarga-version">Versión <?php echo htmlspecialchars($info['version']); ?><?php echo $info['tamano'] !== '' ? ' · ' . htmlspecialchars($info['tamano']) : ''; ?></div>
                   </div>
-<?php if ($disponible) { ?>
+<?php if ($disponible && !empty($info['intel'])) { ?>
+                  <div class="descarga-botones">
+                    <a class="btn btn-primario descarga-btn" href="<?php echo htmlspecialchars($info['archivo']); ?>" download title="Mac con chip M1, M2, M3 o M4"><i class="fa-solid fa-download"></i> Descargar</a>
+                    <a class="descarga-alt" href="<?php echo htmlspecialchars($info['intel']); ?>" download>¿Mac con Intel? Bájala aquí</a>
+                  </div>
+<?php } else if ($disponible) { ?>
                   <a class="btn btn-primario descarga-btn" href="<?php echo htmlspecialchars($info['archivo']); ?>" download><i class="fa-solid fa-download"></i> Descargar</a>
 <?php } else { ?>
                   <span class="descarga-pronto">Próximamente</span>
