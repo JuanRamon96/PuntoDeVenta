@@ -1,6 +1,7 @@
 // Clientes: los del sistema web son solo de consulta; los dados de alta en la caja del equipo (ID negativo)
 // se pueden modificar o eliminar hasta que se suben con "Sincronizar" o "Subir ventas".
 const db = require('../db');
+const sesion = require('../sesion');
 const { tabla } = require('./catalogo');
 const { html } = require('../util');
 
@@ -35,9 +36,10 @@ module.exports = {
             Telefono: html(c.Telefono || ''),
             Domicilio: domicilio || '<span class="text-muted">-</span>',
             Origen: local ? '<span class="badge rounded-pill bg-warning text-dark">Nuevo, sin subir</span>' : '<span class="badge rounded-pill bg-secondary">Del sistema</span>',
+            // Permisos de Clientes como en la web: 3 modificar, 4 eliminar
             Acciones: local
-              ? `<button type="button" class="btn btn-warning btn-sm bModificarClienteLocal" attrID="${c.ID_Cliente}" attrNombre="${html(c.Nombre)}" attrTelefono="${html(c.Telefono || '')}" title="Modificar"><i class="fas fa-pencil"></i></button>
-                 <button type="button" class="btn btn-danger btn-sm bEliminarClienteLocal" attrID="${c.ID_Cliente}" title="Eliminar"><i class="fas fa-trash"></i></button>`
+              ? (sesion.puede('Clientes', 3) ? `<button type="button" class="btn btn-warning btn-sm bModificarClienteLocal" attrID="${c.ID_Cliente}" attrNombre="${html(c.Nombre)}" attrTelefono="${html(c.Telefono || '')}" title="Modificar"><i class="fas fa-pencil"></i></button> ` : '') +
+                (sesion.puede('Clientes', 4) ? `<button type="button" class="btn btn-danger btn-sm bEliminarClienteLocal" attrID="${c.ID_Cliente}" title="Eliminar"><i class="fas fa-trash"></i></button>` : '')
               : ''
           };
         }
@@ -62,6 +64,9 @@ module.exports = {
   },
 
   modificar(p) {
+    if (!sesion.puede('Clientes', 3)) {
+      return 'Offline~Tu usuario no tiene permiso para modificar clientes.';
+    }
     const id = Number(p.id);
     if (!(id < 0) || !db.uno('SELECT ID_Cliente FROM clientes_nuevos WHERE ID_Cliente = ?', [id])) {
       return 'Offline~Este cliente ya está en el sistema web; modifícalo allá.';
@@ -79,6 +84,9 @@ module.exports = {
   },
 
   eliminar(p) {
+    if (!sesion.puede('Clientes', 4)) {
+      return 'Offline~Tu usuario no tiene permiso para eliminar clientes.';
+    }
     const id = Number(p.id);
     if (!(id < 0) || !db.uno('SELECT ID_Cliente FROM clientes_nuevos WHERE ID_Cliente = ?', [id])) {
       return 'Offline~Este cliente ya está en el sistema web; elimínalo allá.';

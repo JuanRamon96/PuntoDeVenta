@@ -98,6 +98,9 @@ const detalles = {
   },
 
   pago(p) {
+    if (!sesion.puede('Ventas', 6)) {
+      return 'Offline~Tu usuario no tiene permiso para registrar pagos.';
+    }
     const v = ventaLocal(p.id);
     if (!v) {
       return 'Offline~Esta venta ya se subió al sistema web; registra el pago allá.';
@@ -133,6 +136,9 @@ const detalles = {
   },
 
   eliminarPago(p) {
+    if (!sesion.puede('Ventas', 6)) {
+      return 'Offline~Tu usuario no tiene permiso para eliminar pagos.';
+    }
     const pago = db.uno('SELECT p.ID_Pago FROM ventas_pagos p JOIN ventas v ON v.ID_Venta = p.FK_Venta WHERE p.ID_Pago = ? AND v.Subido = 0', [p.id]);
     if (!pago) {
       return 'Offline~Este pago ya se subió al sistema web; elimínalo allá.';
@@ -151,6 +157,9 @@ const detalles = {
   },
 
   devolucion(p) {
+    if (!sesion.puede('Ventas', 7)) {
+      return 'Offline~Tu usuario no tiene permiso para hacer devoluciones.';
+    }
     let productos;
     try {
       productos = JSON.parse(p.productos);
@@ -180,6 +189,9 @@ const detalles = {
 
   // Guardar el modal "Modificar venta": se reemplazan los renglones y se recalcula el inventario del equipo
   modificarVenta(p) {
+    if (!sesion.puede('Ventas', 2)) {
+      return 'Offline~Tu usuario no tiene permiso para modificar ventas.';
+    }
     const v = ventaLocal(p.id);
     if (!v) {
       return 'Offline~Esta venta ya se subió al sistema web; modifícala allá.';
@@ -225,8 +237,7 @@ module.exports = {
     const sumas = db.uno(`SELECT COUNT(*) AS Num, IFNULL(SUM(CASE WHEN v.Estatus <> 2 THEN v.Total END), 0) AS Total,
       IFNULL(SUM(CASE WHEN v.Estatus <> 2 THEN v.Pago - v.Cambio END), 0) AS Pagado FROM ${desde} ${b.sql}`, b.params);
     const caja = db.uno('SELECT Nombre FROM cajas LIMIT 1');
-    const yo = sesion.usuario();
-    const permiso = (i) => sesion.esAdmin() || (yo && yo.PermisosLista.Ventas && yo.PermisosLista.Ventas[i] === '1');
+    const permiso = (i) => sesion.puede('Ventas', i); // 2 modificar, 3 eliminar, 4 cancelar, 5 reimprimir, 6 pagos, 7 devoluciones
 
     const data = filas.map((v) => {
       const pagado = v.Pago - v.Cambio + Number(db.valor('SELECT IFNULL(SUM(Monto), 0) FROM ventas_pagos WHERE FK_Venta = ?', [v.ID_Venta]));
@@ -281,6 +292,9 @@ module.exports = {
 
   // Cancelar (igual que la web): se marca cancelada y, si se pide, regresan los productos al inventario
   modificar(p) {
+    if (!sesion.puede('Ventas', 4)) {
+      return 'Offline~Tu usuario no tiene permiso para cancelar ventas.';
+    }
     const v = ventaLocal(p.idVenta);
     if (!v) {
       return 'Offline~Esta venta ya se subió al sistema web; cancélala allá.';
@@ -298,6 +312,9 @@ module.exports = {
 
   // Eliminar: se borra del equipo y las existencias regresan
   eliminar(p) {
+    if (!sesion.puede('Ventas', 3)) {
+      return 'Offline~Tu usuario no tiene permiso para eliminar ventas.';
+    }
     const v = ventaLocal(p.idVenta);
     if (!v) {
       return 'Offline~Esta venta ya se subió al sistema web; elimínala allá.';

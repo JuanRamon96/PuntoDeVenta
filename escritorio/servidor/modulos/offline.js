@@ -19,6 +19,17 @@ function estado() {
   };
 }
 
+// Si en la web cambiaron los permisos del usuario, se aplican al sincronizar sin cerrar sesión
+function refrescarSesion() {
+  const u = sesion.usuario();
+  if (u && db.existeTabla('usuarios')) {
+    const fila = db.uno('SELECT * FROM usuarios WHERE ID_Usuario = ?', [u.ID_Usuario]);
+    if (fila) {
+      sesion.iniciar(fila);
+    }
+  }
+}
+
 async function intentar(fn) {
   try {
     const r = await fn();
@@ -36,11 +47,16 @@ module.exports = {
     if (p.tipo === 'sincronizar') {
       return intentar(async () => {
         await sync.bajar();
+        refrescarSesion();
         return {};
       });
     }
     if (p.tipo === 'subir') {
-      return intentar(() => sync.subir());
+      return intentar(async () => {
+        const r = await sync.subir();
+        refrescarSesion();
+        return r;
+      });
     }
     if (p.tipo === 'desenlazar') {
       return intentar(async () => {

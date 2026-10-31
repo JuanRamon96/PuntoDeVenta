@@ -38,8 +38,8 @@ function layout() {
     '#menuProductos#': sesion.puede('Productos') ? itemMenu('v_productos_offline', 'Productos', 'bMenuProductos', 'fas fa-box') : '',
     '#menuInventario#': sesion.puede('Inventario') ? itemMenu('v_inventario_offline', 'Inventario', 'bMenuInventario', 'fas fa-clipboard-list') : '',
     '#menuPromociones#': sesion.puede('Promociones') ? itemMenu('v_promociones_offline', 'Promociones', 'bMenuPromociones', 'fa-solid fa-tags') : '',
-    '#menuClientes#': itemMenu('v_clientes_offline', 'Clientes', 'bMenuClientes', 'fas fa-people-arrows'),
-    '#menuVentas#': itemMenu('v_ventas', 'Ventas', 'bMenuVentas', 'fas fa-dollar-sign'),
+    '#menuClientes#': sesion.puede('Clientes') ? itemMenu('v_clientes_offline', 'Clientes', 'bMenuClientes', 'fas fa-people-arrows') : '',
+    '#menuVentas#': sesion.puede('Ventas') ? itemMenu('v_ventas', 'Ventas', 'bMenuVentas', 'fas fa-dollar-sign') : '',
     '#menuUsuarios#': (sesion.puede('Usuarios') ? itemMenu('v_usuarios_offline', 'Usuarios', 'bMenuUsuarios', 'fas fa-users') : '') +
       itemMenu('v_impresora_offline', 'Impresora', 'bMenuImpresora', 'fas fa-print')
   };
