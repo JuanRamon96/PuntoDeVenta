@@ -378,6 +378,9 @@ module.exports = {
           db.ejecutar(`INSERT INTO direcciones_nuevas (ID_Direccion, UUID, FK_Cliente, Calle, No_Exterior, No_Interior, CP, Colonia, Ciudad, Estado, Pais, Detalles)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [Number(idDomicilio), uuid(), Number(id), ...dom]);
           db.insertarFila('direcciones_cliente', { ID_Direccion: Number(idDomicilio), FK_Cliente: Number(id), ...campos });
+        } else if (idDomicilio === '0' && Number(id) < 0) {
+          // Domicilio principal: en la web se guarda en el mismo registro del cliente
+          db.ejecutar('UPDATE clientes SET Calle=?, No_Exterior=?, No_Interior=?, CP=?, Colonia=?, Ciudad=?, Estado=?, Pais=?, Detalles=? WHERE ID_Cliente = ?', [...dom, Number(id)]);
         } else if (idDomicilio !== '0' && Number(idDomicilio) < 0) {
           // Solo se pueden editar domicilios creados en el equipo; los del servidor se editan en la web
           db.ejecutar('UPDATE direcciones_nuevas SET Calle=?, No_Exterior=?, No_Interior=?, CP=?, Colonia=?, Ciudad=?, Estado=?, Pais=?, Detalles=? WHERE ID_Direccion = ?', [...dom, Number(idDomicilio)]);

@@ -90,10 +90,22 @@ async function enlazar(codigo) {
 // Reemplaza el catálogo local con el del servidor y vuelve a restar lo vendido en el equipo que aún no se sube
 // Clientes y domicilios dados de alta en el equipo: se suben primero y las ventas pendientes pasan a usar el ID del servidor
 async function subirClientes() {
-  const clientes = db.todos('SELECT * FROM clientes_nuevos ORDER BY ID_Cliente DESC').map((c) => ({
-    uuid: c.UUID, nombre: c.Nombre, telefono: c.Telefono,
-    direcciones: db.todos('SELECT * FROM direcciones_nuevas WHERE FK_Cliente = ?', [c.ID_Cliente]).map(direccionPaquete)
-  }));
+  const clientes = db.todos('SELECT * FROM clientes_nuevos ORDER BY ID_Cliente DESC').map((c) => {
+    // Todos los datos que se capturaron (modal de clientes), no solo nombre y teléfono
+    const fila = db.existeTabla('clientes') ? db.uno('SELECT * FROM clientes WHERE ID_Cliente = ?', [c.ID_Cliente]) : null;
+    const datos = {};
+    if (fila) {
+      for (const [k, v] of Object.entries(fila)) {
+        if (k !== 'ID_Cliente' && v !== null && v !== '') {
+          datos[k] = v;
+        }
+      }
+    }
+    return {
+      uuid: c.UUID, nombre: c.Nombre, telefono: c.Telefono, datos,
+      direcciones: db.todos('SELECT * FROM direcciones_nuevas WHERE FK_Cliente = ?', [c.ID_Cliente]).map(direccionPaquete)
+    };
+  });
   const direcciones = db.todos('SELECT * FROM direcciones_nuevas WHERE FK_Cliente > 0').map((d) => ({ ...direccionPaquete(d), idCliente: d.FK_Cliente }));
   if (!clientes.length && !direcciones.length) {
     return;
@@ -121,7 +133,11 @@ async function subirClientes() {
 }
 
 function direccionPaquete(d) {
-  return { uuid: d.UUID, calle: d.Calle, noExterior: d.No_Exterior, noInterior: d.No_Interior, cp: d.CP, colonia: d.Colonia, ciudad: d.Ciudad, estado: d.Estado, pais: d.Pais, detalles: d.Detalles };
+  const espejo = db.existeTabla('direcciones_cliente') ? db.uno('SELECT * FROM direcciones_cliente WHERE ID_Direccion = ?', [d.ID_Direccion]) : null;
+  return {
+    uuid: d.UUID, calle: d.Calle, noExterior: d.No_Exterior, noInterior: d.No_Interior, cp: d.CP, colonia: d.Colonia, ciudad: d.Ciudad, estado: d.Estado, pais: d.Pais, detalles: d.Detalles,
+    latitud: espejo ? espejo.Latitud || '' : '', longitud: espejo ? espejo.Longitud || '' : ''
+  };
 }
 
 async function bajar() {

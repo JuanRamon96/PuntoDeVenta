@@ -38,7 +38,7 @@ function layout() {
     '#menuProductos#': sesion.puede('Productos') ? itemMenu('v_productos_offline', 'Productos', 'bMenuProductos', 'fas fa-box') : '',
     '#menuInventario#': sesion.puede('Inventario') ? itemMenu('v_inventario_offline', 'Inventario', 'bMenuInventario', 'fas fa-clipboard-list') : '',
     '#menuPromociones#': sesion.puede('Promociones') ? itemMenu('v_promociones_offline', 'Promociones', 'bMenuPromociones', 'fa-solid fa-tags') : '',
-    '#menuClientes#': sesion.puede('Clientes') ? itemMenu('v_clientes_offline', 'Clientes', 'bMenuClientes', 'fas fa-people-arrows') : '',
+    '#menuClientes#': sesion.puede('Clientes') ? itemMenu('v_clientes', 'Clientes', 'bMenuClientes', 'fas fa-people-arrows') : '',
     '#menuVentas#': sesion.puede('Ventas') ? itemMenu('v_ventas', 'Ventas', 'bMenuVentas', 'fas fa-dollar-sign') : '',
     '#menuUsuarios#': (sesion.puede('Usuarios') ? itemMenu('v_usuarios_offline', 'Usuarios', 'bMenuUsuarios', 'fas fa-users') : '') +
       itemMenu('v_impresora_offline', 'Impresora', 'bMenuImpresora', 'fas fa-print')
@@ -70,12 +70,17 @@ function contenido(vista) {
     // Misma vista de la web, sin botones de administración
     return leer('vistas/v_cajas.php').replace('#bCortes#', '').replace('#bAgregar#', '');
   }
+  if (vista === 'v_clientes') {
+    // Misma pantalla de clientes de la web, sin "Agregar": los clientes nuevos se dan de alta en la caja
+    return leer('vistas/v_clientes.php').replace('#bAgregar#',
+      '<span class="vt-offline-nota">Los clientes del sistema web se modifican allá. Los nuevos que das de alta en la caja dicen "Nuevo, sin subir" y se pueden modificar o eliminar hasta que sincronices.</span>');
+  }
   if (vista === 'v_ventas') {
     // Misma pantalla de ventas de la web, con las ventas del equipo que aún no se suben
     const caja = db.existeTabla('cajas') ? db.uno('SELECT ID_Caja, Nombre FROM cajas LIMIT 1') : null;
     return leer('vistas/v_ventas.php').replace('#cajas#', caja ? `<option value="${caja.ID_Caja}">${html(caja.Nombre)}</option>` : '');
   }
-  const propias = ['v_clientes_offline', 'v_productos_offline', 'v_inventario_offline', 'v_promociones_offline', 'v_usuarios_offline', 'v_impresora_offline'];
+  const propias = ['v_productos_offline', 'v_inventario_offline', 'v_promociones_offline', 'v_usuarios_offline', 'v_impresora_offline'];
   if (propias.includes(vista)) {
     return leer(`offline/vistas/${vista}.html`);
   }

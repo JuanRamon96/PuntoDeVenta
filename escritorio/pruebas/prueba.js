@@ -212,16 +212,23 @@ const pedir = (p) => rutas.atender('index.php', 'POST', p);
   const nc = (await pedir({ metodo: 'modificar', accion: 'caja', tipo: 'cliente', telefono: telUnico, nombre: 'Cliente Sin Venta', calle: '', noExterior: '', noInterior: '', cp: '', colonia: '', ciudad: '', estado: '', pais: '', detalles: '', idCliente: '', idDomicilio: '' })).split('~');
   const idNuevo = Number(nc[1]);
   assert.ok(idNuevo < 0);
-  assert.match(await pedir({ metodo: 'consultar', accion: 'clientes', tipo: 'pantalla', buscar: 'Sin Venta', limit: 25, pagina: 1 }), /Nuevo, sin subir/);
-  assert.strictEqual(await pedir({ metodo: 'modificar', accion: 'clientes', id: idNuevo, nombre: 'Cliente Sin Venta Editado', telefono: telUnico }), 'Correcto');
+  assert.match(await pedir({ metodo: 'consultar', accion: 'clientes', buscar: 'Sin Venta', limit: 25, pagina: 1 }), /Nuevo, sin subir/);
+  // Mismo modal de la web: todos los campos y domicilios adicionales
+  assert.match(await pedir({ metodo: 'detalles', accion: 'clientes', tipo: 'cliente', id: idNuevo }), /"Direcciones":\[\]/);
+  assert.strictEqual(await pedir({ metodo: 'modificar', accion: 'clientes', id: idNuevo, tipoCliente: 'Física', nombre: 'Cliente Sin Venta Editado', primerApellido: 'Lopez', segundoApellido: '',
+    sexo: 'Masculino', razonSocial: '', rfc: 'XAXX010101000', regimen: '', telefono: telUnico, segundoTelefono: '', email: 'cliente@prueba.test', calle: 'Hidalgo', noExterior: '12',
+    noInterior: '', colonia: 'Centro', cp: '47000', ciudad: 'Arandas', estado: 'Jalisco', pais: 'México', latitud: '', longitud: '', contacto: '', puesto: '', telContacto: '', emailContacto: '',
+    direcciones: JSON.stringify([{ calle: 'Morelos', noExterior: '3', noInterior: '', cp: '47000', colonia: 'Centro', ciudad: 'Arandas', estado: 'Jalisco', pais: 'México', detalles: 'Bodega', latitud: '', longitud: '' }]) }), 'Correcto');
   const borrar = Number((await pedir({ metodo: 'modificar', accion: 'caja', tipo: 'cliente', telefono: '', nombre: 'Para borrar', calle: '', noExterior: '', noInterior: '', cp: '', colonia: '', ciudad: '', estado: '', pais: '', detalles: '', idCliente: '', idDomicilio: '' })).split('~')[1]);
   assert.strictEqual(await pedir({ metodo: 'eliminar', accion: 'clientes', id: borrar }), 'Correcto');
   const servidorAntes = Number(mysql(`SELECT COUNT(*) FROM clientes WHERE Telefono = '${telUnico}'`));
   assert.ok(JSON.parse(await pedir({ metodo: 'detalles', accion: 'offline', tipo: 'sincronizar' })).ok);
   assert.strictEqual(Number(mysql(`SELECT COUNT(*) FROM clientes WHERE Telefono = '${telUnico}' AND Nombre = 'Cliente Sin Venta Editado'`)), servidorAntes + 1);
   assert.strictEqual(mysql("SELECT COUNT(*) FROM clientes WHERE Nombre = 'Para borrar'"), '0');
+  assert.strictEqual(mysql(`SELECT CONCAT_WS('|', Primer_Apellido, RFC, Email, Calle, Ciudad) FROM clientes WHERE Telefono = '${telUnico}'`), 'Lopez|XAXX010101000|cliente@prueba.test|Hidalgo|Arandas', 'sube todos los datos');
+  assert.strictEqual(mysql(`SELECT COUNT(*) FROM direcciones_cliente d JOIN clientes c ON c.ID_Cliente = d.FK_Cliente WHERE c.Telefono = '${telUnico}' AND d.Detalles = 'Bodega'`), '1');
   assert.strictEqual(db.valor('SELECT COUNT(*) FROM clientes_nuevos'), 0);
-  assert.match(await pedir({ metodo: 'consultar', accion: 'clientes', tipo: 'pantalla', buscar: telUnico, limit: 25, pagina: 1 }), /Del sistema/);
+  assert.match(await pedir({ metodo: 'consultar', accion: 'clientes', buscar: telUnico, limit: 25, pagina: 1 }), /fechaHumana|\d{2}-\d{2}-\d{4}/);
   assert.strictEqual(await pedir({ metodo: 'eliminar', accion: 'clientes', id: db.valor('SELECT ID_Cliente FROM clientes WHERE Telefono = ?', [telUnico]) }), 'Offline~Este cliente ya está en el sistema web; elimínalo allá.');
 
   // 11. Impresión: versión para la impresora sin scripts del diálogo y con la escala
@@ -242,11 +249,11 @@ const pedir = (p) => rutas.atender('index.php', 'POST', p);
   assert.match(await pedir({ metodo: 'eliminar', accion: 'ventas', idVenta: vPermiso }), /no tiene permiso/);
   assert.match(await pedir({ metodo: 'modificar', accion: 'ventas', idVenta: vPermiso, regresarInventario: 1 }), /no tiene permiso/);
   const cliPermiso = Number((await pedir({ metodo: 'modificar', accion: 'caja', tipo: 'cliente', telefono: '', nombre: 'Permisos', calle: '', noExterior: '', noInterior: '', cp: '', colonia: '', ciudad: '', estado: '', pais: '', detalles: '', idCliente: '', idDomicilio: '' })).split('~')[1]);
-  assert.doesNotMatch(await pedir({ metodo: 'consultar', accion: 'clientes', tipo: 'pantalla', buscar: 'Permisos', limit: 25, pagina: 1 }), /bModificarClienteLocal|bEliminarClienteLocal/);
+  assert.doesNotMatch(await pedir({ metodo: 'consultar', accion: 'clientes', buscar: 'Permisos', limit: 25, pagina: 1 }), /bModificarCliente|bEliminarCliente/);
   assert.match(await pedir({ metodo: 'eliminar', accion: 'clientes', id: cliPermiso }), /no tiene permiso/);
   // Al sincronizar vuelven los permisos del servidor sin cerrar sesión
   assert.ok(JSON.parse(await pedir({ metodo: 'detalles', accion: 'offline', tipo: 'subir' })).ok);
-  assert.match(await pedir({ metodo: 'consultar', accion: 'clientes', tipo: 'pantalla', buscar: 'Permisos', limit: 25, pagina: 1 }), /Del sistema/);
+  assert.match(await pedir({ metodo: 'consultar', accion: 'clientes', buscar: 'Permisos', limit: 25, pagina: 1 }), /fechaHumana|\d{2}-\d{2}-\d{4}/);
 
   console.log('Todas las pruebas pasaron. Base de prueba en', carpeta);
 })().catch((e) => {

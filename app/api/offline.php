@@ -165,7 +165,25 @@ $clienteServidor = function ($cli) use ($db, $yaSubido, $anotar) {
 		if (count($r)) {
 			$idCliente = intval($r[0]['ID_Cliente']);
 		} else {
-			$db->query("INSERT INTO clientes SET Tipo = 'Física', Nombre = '" . esc($cli['nombre']) . "', Telefono = '$tel', Fecha_Registro = NOW()");
+			// Todos los datos capturados en el equipo (modal de clientes); solo columnas que existan en la tabla
+			$set = "Tipo = 'Física', Nombre = '" . esc($cli['nombre']) . "', Telefono = '$tel'";
+			if (!empty($cli['datos']) && is_array($cli['datos'])) {
+				$permitidas = array('Tipo', 'Nombre', 'Primer_Apellido', 'Segundo_Apellido', 'Sexo', 'Razon_Social', 'RFC', 'Regimen_CFDI', 'Telefono', 'Segundo_Telefono', 'Email', 'Calle', 'No_Exterior', 'No_Interior', 'Colonia', 'CP', 'Ciudad', 'Estado', 'Pais', 'Detalles', 'Contacto', 'Puesto_Contacto', 'Telefono_Contacto', 'Email_Contacto', 'Latitud', 'Longitud');
+				$existentes = array();
+				foreach (filas("SHOW COLUMNS FROM clientes") as $col) {
+					$existentes[] = $col['Field'];
+				}
+				$partes = array();
+				foreach ($permitidas as $col) {
+					if (in_array($col, $existentes) && isset($cli['datos'][$col]) && !is_array($cli['datos'][$col])) {
+						$partes[] = "$col = '" . esc($cli['datos'][$col]) . "'";
+					}
+				}
+				if (count($partes)) {
+					$set = implode(', ', $partes);
+				}
+			}
+			$db->query("INSERT INTO clientes SET $set, Fecha_Registro = NOW()");
 			$idCliente = $db->insert_id;
 		}
 		$anotar($cli['uuid'], 'cliente', $idCliente);
@@ -176,7 +194,7 @@ $clienteServidor = function ($cli) use ($db, $yaSubido, $anotar) {
 		$d = $cli['direccion'];
 		$idDireccion = $yaSubido($d['uuid'], 'direccion');
 		if (!$idDireccion) {
-			$campos = array('Calle' => 'calle', 'No_Exterior' => 'noExterior', 'No_Interior' => 'noInterior', 'CP' => 'cp', 'Colonia' => 'colonia', 'Ciudad' => 'ciudad', 'Estado' => 'estado', 'Pais' => 'pais', 'Detalles' => 'detalles');
+			$campos = array('Calle' => 'calle', 'No_Exterior' => 'noExterior', 'No_Interior' => 'noInterior', 'CP' => 'cp', 'Colonia' => 'colonia', 'Ciudad' => 'ciudad', 'Estado' => 'estado', 'Pais' => 'pais', 'Detalles' => 'detalles', 'Latitud' => 'latitud', 'Longitud' => 'longitud');
 			$set = "FK_Cliente = '$idCliente'";
 			foreach ($campos as $col => $k) {
 				$set .= ", $col = '" . esc(isset($d[$k]) ? $d[$k] : '') . "'";
@@ -193,7 +211,7 @@ $clienteServidor = function ($cli) use ($db, $yaSubido, $anotar) {
 if ($accion === 'clientes') {
 	$mapa = array('clientes' => new stdClass(), 'direcciones' => new stdClass());
 	foreach (isset($entrada['clientes']) && is_array($entrada['clientes']) ? $entrada['clientes'] : array() as $cli) {
-		list($idCliente) = $clienteServidor(array('uuid' => $cli['uuid'], 'nombre' => $cli['nombre'], 'telefono' => $cli['telefono']));
+		list($idCliente) = $clienteServidor(array('uuid' => $cli['uuid'], 'nombre' => $cli['nombre'], 'telefono' => $cli['telefono'], 'datos' => isset($cli['datos']) ? $cli['datos'] : array()));
 		$mapa['clientes']->{$cli['uuid']} = $idCliente;
 		foreach (isset($cli['direcciones']) ? $cli['direcciones'] : array() as $d) {
 			list(, $idDireccion) = $clienteServidor(array('uuid' => $cli['uuid'], 'direccion' => $d));
@@ -205,7 +223,7 @@ if ($accion === 'clientes') {
 		$idDireccion = $yaSubido($d['uuid'], 'direccion');
 		$idCliente = intval($d['idCliente']);
 		if (!$idDireccion && count(filas("SELECT ID_Cliente FROM clientes WHERE ID_Cliente = '$idCliente'"))) {
-			$campos = array('Calle' => 'calle', 'No_Exterior' => 'noExterior', 'No_Interior' => 'noInterior', 'CP' => 'cp', 'Colonia' => 'colonia', 'Ciudad' => 'ciudad', 'Estado' => 'estado', 'Pais' => 'pais', 'Detalles' => 'detalles');
+			$campos = array('Calle' => 'calle', 'No_Exterior' => 'noExterior', 'No_Interior' => 'noInterior', 'CP' => 'cp', 'Colonia' => 'colonia', 'Ciudad' => 'ciudad', 'Estado' => 'estado', 'Pais' => 'pais', 'Detalles' => 'detalles', 'Latitud' => 'latitud', 'Longitud' => 'longitud');
 			$set = "FK_Cliente = '$idCliente'";
 			foreach ($campos as $col => $k) {
 				$set .= ", $col = '" . esc(isset($d[$k]) ? $d[$k] : '') . "'";
