@@ -1891,3 +1891,14 @@ body:has(.vt-login-page) { background-color: var(--vt-navy); }
   min-height: calc(100vh - 51px) !important;
   height: auto !important;
 }
+
+/* Menú y encabezado fijos: antes eran "absolute"/"relative" y al desplazar una página larga el
+   menú se iba con el contenido y dejaba la parte de abajo sin menú (no se podía elegir opción) */
+.pcoded-navbar {
+  position: fixed;
+}
+
+.pcoded-header {
+  position: sticky;
+  top: 0;
+}

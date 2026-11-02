@@ -283,7 +283,8 @@ $(window).scroll(function() {
 function togglemenu() {
     var vw = $(window)[0].innerWidth;
     if ($(".pcoded-navbar").hasClass('theme-horizontal') == false) {
-        if (vw <= 1200 && vw >= 992) {
+        // En pantallas táctiles no hay "pasar el mouse" para expandir el menú contraído; se deja abierto
+        if (vw <= 1200 && vw >= 992 && !window.matchMedia('(hover: none)').matches) {
             $(".pcoded-navbar:not(.theme-horizontal)").addClass("navbar-collapsed");
         }
         if (vw < 992) {
