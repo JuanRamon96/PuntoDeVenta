@@ -19,7 +19,8 @@ $(document).ready(function() {
         $this.toggleClass('on');
     });
     $("#mobile-collapse").on('click', function() {
-        if (vw > 991) {
+        // Ancho actual, no el de la carga: si la ventana se achicaba, el botón contraía el menú móvil a solo íconos
+        if ($(window)[0].innerWidth > 991) {
             $(".pcoded-navbar:not(.theme-horizontal)").toggleClass("navbar-collapsed");
         }
     });
@@ -719,12 +720,11 @@ $("#mobile-collapse,#mobile-collapse1").click(function(e) {
     }
 });
 $(window).ready(function() {
-    var vw = $(window)[0].innerWidth;
     $(".pcoded-navbar").on('click tap', function(e) {
         e.stopPropagation();
     });
     $('.pcoded-main-container,.pcoded-header').on("click", function() {
-        if (vw < 992) {
+        if ($(window)[0].innerWidth < 992) {
             if ($(".pcoded-navbar").hasClass("mob-open") == true) {
                 $(".pcoded-navbar").removeClass('mob-open');
                 $("#mobile-collapse,#mobile-collapse1").removeClass('on');

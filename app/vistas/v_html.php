@@ -1294,7 +1294,7 @@
 	<script src="vistas/assets/js/vendor-all.min.js"></script>
 	<script src="vistas/assets/plugins/bootstrap/js/bootstrap.bundle.min.js"></script>
 	<script src="vistas/assets/js/ripple.js"></script>
-	<script src="vistas/assets/js/pcoded.js?v=1"></script>
+	<script src="vistas/assets/js/pcoded.js?v=2"></script>
 	<script src="vistas/assets/js/plugins/apexcharts.min.js"></script>
 	<script src="vistas/assets/plugins/jquery-validation/dist/jquery.validate.min.js"></script>
 	<script src="vistas/assets/plugins/sweetalert/dist/sweetalert2.all.min.js"></script>
