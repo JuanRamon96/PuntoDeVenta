@@ -1907,7 +1907,7 @@ body:has(.vt-login-page) { background-color: var(--vt-navy); }
    opción 44→50px) y todo brincaba. Ahora nada cambia de altura: solo se anima el ancho y los textos
    se desvanecen. */
 .pcoded-navbar.navbar-collapsed {
-  transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  transition: width 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 
 .pcoded-navbar.navbar-collapsed .main-menu-header {
@@ -1929,7 +1929,13 @@ body:has(.vt-login-page) { background-color: var(--vt-navy); }
   position: relative !important;
   top: 0 !important;
   transform: none !important;
-  transition: opacity 0.2s ease !important;
+  /* Al cerrar el texto se va en 0.08s, a la par del ancho; al abrir aparece cuando ya hay espacio */
+  transition: opacity 0.08s linear !important;
+}
+
+.pcoded-navbar.navbar-collapsed:hover .pcoded-inner-navbar > li > a > .pcoded-mtext,
+.pcoded-navbar.navbar-collapsed:hover .pcoded-menu-caption > label {
+  transition: opacity 0.15s ease 0.05s !important;
 }
 
 .pcoded-navbar.navbar-collapsed:not(:hover) .pcoded-inner-navbar li.pcoded-menu-caption > label {
